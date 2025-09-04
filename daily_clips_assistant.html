@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agency Daily Clips Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.1/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+            padding-bottom: 5rem;
+        }
+        .nav-link-group {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: #0284c7;
+            border-bottom-color: #0284c7;
+        }
+        .info-icon {
+            cursor: pointer;
+            color: #94a3b8;
+            transition: color 0.2s ease;
+        }
+        .info-icon:hover {
+            color: #0284c7;
+        }
+        .content-section, .tool-container {
+            display: none;
+        }
+        .content-section.active, .tool-container.active {
+            display: block;
+        }
+        .clip-item {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+        .clip-item-content {
+            font-family: 'Calibri', 'Times New Roman', serif;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+        .clip-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .clip-action-btn {
+            border-radius: 9999px;
+            width: 1.75rem;
+            height: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .remove-clip-btn {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        .remove-clip-btn:hover {
+            background-color: #fecaca;
+            transform: scale(1.1);
+        }
+        .refine-clip-btn {
+             background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+        .refine-clip-btn:hover {
+            background-color: #bfdbfe;
+            transform: scale(1.1);
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #0ea5e9;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        #persistent-document-wrapper {
+            transition: transform 0.3s ease-in-out;
+        }
+        #helpModal {
+            position: fixed;
+            top: 15%;
+            left: 20%;
+            z-index: 110;
+        }
+        #helpModalHeader {
+            cursor: move;
+        }
+        .help-content h4 {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #1e293b;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .help-content p {
+            margin-bottom: 0.5rem;
+        }
+        .help-content ol {
+            list-style-type: decimal;
+            list-style-position: inside;
+            margin-left: 0.5rem;
+            space-y: 0.5rem;
+        }
+        .help-content li {
+            margin-bottom: 0.25rem;
+        }
+        .help-content code {
+            background-color: #e2e8f0;
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+        }
+        #app-container.hidden, #auth-container.hidden, #dashboard-container.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="auth-container" class="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4">
+        <div class="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
+            <div class="flex items-center justify-center mb-6">
+                <div class="bg-sky-600 p-2 rounded-lg">
+                   <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800 ml-4">Multi-Agency Clips Assistant</h1>
+            </div>
+            <h2 class="text-xl font-bold text-center text-slate-700 mb-4">Admin Sign In</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="email-input" class="block text-sm font-medium text-slate-600">Email</label>
+                    <input type="email" id="email-input" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" value="jmarquis@iqsolutions.com">
+                </div>
+                <div>
+                    <label for="password-input" class="block text-sm font-medium text-slate-600">Password</label>
+                    <input type="password" id="password-input" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" value="admin1">
+                </div>
+            </div>
+            <div id="auth-error" class="text-red-600 text-sm mt-4 text-center hidden"></div>
+            <div class="mt-6">
+                <button id="signin-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                    Sign In
+                </button>
+            </div>
+            <div class="mt-4 text-center">
+               <button id="guest-signin-btn" class="text-sm text-slate-500 hover:text-sky-600 underline">Continue as Guest</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-container" class="hidden min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-slate-900">Welcome to the Clips Assistant</h1>
+            <p class="text-lg text-slate-600 mt-2">Please select a tool to begin.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div onclick="launchTool('HRSA')" class="bg-white p-8 rounded-lg shadow-lg border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
+                <div class="flex items-center mb-4">
+                    <div class="bg-sky-600 p-3 rounded-lg">
+                        <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 16.382V5.618a1 1 0 00-1.447-.894L15 7m-6 3l6-3"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 ml-4">HRSA Daily Clips</h2>
+                </div>
+                <p class="text-slate-600">Generate, manage, and export daily news clips related to the Health Resources and Services Administration.</p>
+            </div>
+            <div onclick="launchTool('NIA')" class="bg-white p-8 rounded-lg shadow-lg border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
+                <div class="flex items-center mb-4">
+                    <div class="bg-indigo-600 p-3 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 ml-4">NIA Daily Clips</h2>
+                </div>
+                <p class="text-slate-600">Create daily clips focused on Alzheimer’s, dementia, and aging, following the National Institute on Aging's SOP.</p>
+            </div>
+        </div>
+        <div class="mt-12 text-center">
+            <button id="dashboard-signout-btn" class="text-sm font-medium text-slate-500 hover:text-sky-600 underline">Sign Out</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden">
+    </div>
+
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-auto text-center">
+            <p id="alertMessage" class="text-slate-700 whitespace-pre-wrap"></p>
+            <button onclick="closeAlertModal()" class="mt-4 w-full bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700 transition">OK</button>
+        </div>
+    </div>
+    
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-auto text-center">
+            <p id="confirmMessage" class="text-slate-700 mb-6"></p>
+            <div class="flex justify-center gap-4">
+                <button onclick="closeConfirmModal()" class="w-full bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300 transition">Cancel</button>
+                <button id="confirm-btn-yes" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="refineModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg mx-auto">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Refine Summary</h3>
+            <p class="text-slate-600 mb-2">The current summary is below. Provide a simple instruction to refine it (e.g., "make it shorter").</p>
+            <div id="refine-original-summary" class="text-sm p-3 bg-slate-100 rounded-md mb-4 clip-item-content"></div>
+            <textarea id="refine-prompt-input" class="w-full h-20 p-2 border border-slate-300 rounded-md" placeholder="Your instruction here..."></textarea>
+            <div class="mt-4 flex justify-end gap-3">
+                <button onclick="closeRefineModal()" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                <button id="refine-btn" onclick="refineClip()" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center">
+                    <span id="refine-btn-text">Refine Summary</span>
+                    <div id="refine-btn-spinner" class="spinner ml-2 hidden"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="archiveEditModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl mx-auto">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Edit Library Clip</h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="archive-edit-headline" class="block text-sm font-medium text-slate-700 mb-1">Headline</label>
+                    <input type="text" id="archive-edit-headline" class="w-full p-2 border border-slate-300 rounded-md">
+                </div>
+                <div>
+                    <label for="archive-edit-body" class="block text-sm font-medium text-slate-700 mb-1">Body</label>
+                    <textarea id="archive-edit-body" class="w-full h-48 p-2 border border-slate-300 rounded-md clip-item-content"></textarea>
+                </div>
+                 <div>
+                    <label for="archive-edit-link" class="block text-sm font-medium text-slate-700 mb-1">Source Link</label>
+                    <input type="url" id="archive-edit-link" class="w-full p-2 border border-slate-300 rounded-md">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="closeArchiveEditModal()" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                <button onclick="saveArchiveEdit()" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="helpModal" class="w-full max-w-lg hidden">
+        <div class="bg-white rounded-lg shadow-2xl border border-slate-300">
+            <div id="helpModalHeader" class="bg-slate-700 text-white p-3 flex justify-between items-center rounded-t-lg">
+                <h3 class="font-bold">How-To Guide</h3>
+                <button onclick="closeHelpModal()" class="text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <div id="helpModalContent" class="p-6 text-slate-600 text-sm help-content max-h-[60vh] overflow-y-auto">
+            </div>
+        </div>
+    </div>
+
+    <div id="persistent-document-wrapper" class="fixed bottom-0 left-0 right-0 w-full bg-white shadow-2xl z-[90] transform translate-y-full">
+        <div id="document-controls" class="bg-slate-800 text-white p-2 flex justify-between items-center">
+            <h3 id="document-title-bar" class="text-sm font-bold pl-2">Generated Document</h3>
+            <div>
+                <button onclick="copyDocumentToClipboard()" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-1 px-3 rounded text-xs mr-2">Copy Content</button>
+                <button id="toggle-document-btn" onclick="toggleDocumentVisibility()" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-1 px-3 rounded text-xs">Hide</button>
+            </div>
+        </div>
+        <div id="document-content-wrapper" class="h-80 overflow-y-auto">
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, onSnapshot, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const hrsaCategoryOrder = ["HRSA News/AHA News", "Vaccine Injury News", "HHS Restructuring News", "Health Workforce", "Rural Health News", "Maternal and Child Health News", "Organ News", "HIV/AIDS News", "Imported"];
+        const niaCategoryOrder = ["NIA-Funded", "NIA-Mentioned", "General Alzheimer's/Dementia", "Imported"];
+
+        let clipLibrary = [];
+        let temporaryClips = [];
+        let clipToRefineId = null;
+        let clipToEditInArchiveId = null;
+        let confirmCallback = null;
+        let isDocumentVisible = false;
+        let isAdmin = false;
+        let currentAgency = null;
+
+        let db, auth, userId, appId;
+        let unsubscribeFromLibrary;
+        let clipsCollectionPath;
+
+        window.launchTool = function(agency) {
+            currentAgency = agency;
+            document.getElementById('dashboard-container').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            renderToolUI(agency);
+            initializeTool(agency);
+        }
+
+        window.goBackToDashboard = function() {
+            if (unsubscribeFromLibrary) {
+                unsubscribeFromLibrary();
+                unsubscribeFromLibrary = null;
+            }
+            currentAgency = null;
+            clipLibrary = [];
+            temporaryClips = [];
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('dashboard-container').classList.remove('hidden');
+            document.getElementById('app-container').innerHTML = '';
+        }
+
+        window.showSection = function(sectionId, element) {
+            const activeToolContainer = document.querySelector('.tool-container.active');
+            if (!activeToolContainer) return;
+
+            activeToolContainer.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            const sectionEl = activeToolContainer.querySelector(`#${sectionId}`);
+            if (sectionEl) sectionEl.classList.add('active');
+            
+            activeToolContainer.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            if(element) {
+                element.classList.add('active');
+            }
+
+            if (sectionId.endsWith('archive')) {
+                renderClipArchive();
+            }
+            if (sectionId.endsWith('library')) {
+                updateLibraryManagementDateSelector();
+            }
+        }
+
+        window.showAlert = function(message) {
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').classList.remove('hidden');
+        }
+
+        window.closeAlertModal = function() {
+            document.getElementById('alertModal').classList.add('hidden');
+        }
+
+        window.showConfirmModal = function(message, onConfirm) {
+            confirmCallback = onConfirm;
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            
+            const confirmBtn = document.getElementById('confirm-btn-yes');
+            confirmBtn.onclick = () => {
+                if (typeof confirmCallback === 'function') {
+                    confirmCallback();
+                }
+                closeConfirmModal();
+            };
+        }
+
+        window.closeConfirmModal = function() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        function toggleSpinner(buttonId, show) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+            const text = button.querySelector('span');
+            const spinner = button.querySelector('.spinner');
+            button.disabled = show;
+             if (text && spinner) {
+                if (show) {
+                    text.style.visibility = 'hidden';
+                    spinner.style.display = 'inline-block';
+                } else {
+                    text.style.visibility = 'visible';
+                    spinner.style.display = 'none';
+                }
+            }
+        }
+        
+        function setConnectionStatus(status, colorClass) {
+            const statusEl = document.getElementById('connection-status');
+            if (statusEl) {
+                statusEl.textContent = status;
+                statusEl.className = `text-sm font-medium ${colorClass}`;
+            }
+        }
+
+        async function callGemini(prompt, isJsonResponse = false) {
+            const maxRetries = 3;
+            let delay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const apiKey = ""; //Enter API Key here
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{ role: "user", parts: [{ text: prompt }] }],
+                        ...(isJsonResponse && {
+                            generationConfig: {
+                                responseMimeType: "application/json",
+                            }
+                        })
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429 || response.status === 503) {
+                        console.warn(`Attempt ${i + 1}/${maxRetries} failed with status ${response.status}. Retrying in ${delay / 1000}s...`);
+                        if (i === maxRetries - 1) {
+                            throw new Error("The model is currently overloaded. Please try again in a few moments.");
+                        }
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                        continue;
+                    }
+
+                    const responseData = await response.json();
+
+                    if (!response.ok) {
+                        const errorDetails = responseData.error?.message || `An API error occurred (status ${response.status}).`;
+                        console.error("Gemini API Error:", JSON.stringify(responseData, null, 2));
+                        throw new Error(errorDetails);
+                    }
+
+                    const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        console.error("Gemini API did not return text. Full response:", JSON.stringify(responseData, null, 2));
+                        if (responseData.promptFeedback?.blockReason) {
+                            throw new Error(`Request was blocked for reason: ${responseData.promptFeedback.blockReason}.`);
+                        }
+                        if (i < maxRetries - 1) {
+                            console.warn(`Attempt ${i + 1}/${maxRetries} returned no text. Retrying...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                            continue;
+                        }
+                        throw new Error("The model was unable to return a response. Please try again.");
+                    }
+                    
+                    return text;
+
+                } catch (error) {
+                    console.error(`Error on attempt ${i + 1}/${maxRetries}:`, error.message);
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        window.generateClips = async function() {
+            if (!currentAgency) return;
+            
+            const articleText = document.getElementById(`${currentAgency}-article-input`).value;
+            if (!articleText.trim()) {
+                showAlert('Please paste article text before generating.');
+                return;
+            }
+
+            toggleSpinner(`${currentAgency}-generate-clips-btn`, true);
+            const errorDiv = document.getElementById(`${currentAgency}-clips-error`);
+            const overrideBtn = document.getElementById(`${currentAgency}-override-generate-btn`);
+            errorDiv.textContent = '';
+            errorDiv.classList.add('hidden');
+            if(overrideBtn) overrideBtn.classList.add('hidden');
+            
+            const prompt = currentAgency === 'HRSA' ? getHrsaGenerationPrompt(articleText) : getNiaGenerationPrompt(articleText);
+
+            try {
+                const responseText = await callGemini(prompt, true);
+                temporaryClips = [];
+                
+                parseJsonClips(responseText, articleText);
+                
+                renderTemporaryClips();
+
+            } catch (error) {
+                console.error(`Error in generateClips for ${currentAgency}:`, error);
+                if (error.message.includes("The AI did not generate any valid clips")) {
+                    errorDiv.textContent = `Forced Generation Failed: ${error.message}`;
+                    if (overrideBtn) overrideBtn.classList.remove('hidden');
+                } else {
+                     errorDiv.textContent = `Clip Generation Failed: ${error.message}`;
+                }
+                errorDiv.classList.remove('hidden');
+            } finally {
+                toggleSpinner(`${currentAgency}-generate-clips-btn`, false);
+            }
+        }
+
+        window.overrideGenerateClips = async function() {
+            if (!currentAgency) return;
+            
+            const articleText = document.getElementById(`${currentAgency}-article-input`).value;
+
+            toggleSpinner(`${currentAgency}-override-generate-btn`, true);
+            const errorDiv = document.getElementById(`${currentAgency}-clips-error`);
+            errorDiv.textContent = '';
+            errorDiv.classList.add('hidden');
+            document.getElementById(`${currentAgency}-override-generate-btn`).classList.add('hidden');
+
+            const prompt = currentAgency === 'HRSA' ? getHrsaOverridePrompt(articleText) : getNiaOverridePrompt(articleText);
+
+            try {
+                const responseText = await callGemini(prompt, true);
+                temporaryClips = [];
+                parseJsonClips(responseText, articleText);
+                renderTemporaryClips();
+            } catch (error) {
+                console.error(`Error in overrideGenerateClips for ${currentAgency}:`, error);
+                errorDiv.textContent = `Override Generation Failed: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                toggleSpinner(`${currentAgency}-override-generate-btn`, false);
+            }
+        }
+
+        function getHrsaOverridePrompt(articleText) {
+             const regularPrompt = getHrsaGenerationPrompt(articleText);
+             return regularPrompt.replace(
+                "After isolating the main article, if its content is an opinion piece, blog, or advertisement, you MUST return an empty JSON array: [].",
+                "You MUST always attempt to generate a clip based on the core message of the text, even if it appears to be an opinion, blog, advertisement, or only tangentially related. Do not return an empty array unless the text is completely nonsensical or empty."
+             ).replace(
+                "**IMPORTANT EXCLUSION:** If an article is about general vaccine policy (not specifically vaccine injury), CDC leadership, or other broad public health topics that only tangentially mention HHS, it is NOT a relevant clip. You MUST return an empty JSON array: [].",
+                "" // Remove the exclusion rule
+             );
+        }
+
+        function getNiaOverridePrompt(articleText) {
+            const regularPrompt = getNiaGenerationPrompt(articleText);
+            return regularPrompt.replace(
+                "If the text is not a news article (e.g., opinion piece, advertisement), you MUST return an empty JSON array: [].",
+                "You MUST always attempt to generate a clip based on the core message of the text, even if it appears to be an opinion piece or advertisement. Do not return an empty array unless the text is completely nonsensical or empty."
+            );
+        }
+        
+        function getHrsaGenerationPrompt(articleText) {
+              const currentDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+              return `
+                You are an AI model trained to generate news clips based on a Master Guide. Your task is to analyze the provided article text, identify the single main news story, and convert it into a structured JSON object.
+
+                **Master Guide Rules:**
+
+                **0. Pre-analysis Step: Isolate the Main Article**
+                - Before all other steps, you MUST identify the **single primary news article** within the provided text.
+                - You MUST IGNORE all surrounding, non-essential content. This includes website headers, navigation menus, social media links, "Donate" buttons, "Related Stories" sections, author biographies, and footers.
+                - Your entire analysis should focus ONLY on the main news story's headline and body text.
+
+                **1. Selection & Filtering:**
+                - After isolating the main article, if its content is an opinion piece, blog, or advertisement, you MUST return an empty JSON array: [].
+                - **IMPORTANT EXCLUSION:** If an article is about general vaccine policy (not specifically vaccine injury), CDC leadership, or other broad public health topics that only tangentially mention HHS, it is NOT a relevant clip. You MUST return an empty JSON array: [].
+
+                **2. Categorization (Primary Subject Rule):**
+                - **Decision Logic:** To find the correct category, first identify the article's **primary subject**. The primary subject is the core news event or topic being reported. The category MUST reflect this primary subject, not just a mentioned organization or keyword.
+                - **Specific Category Guidance:**
+                    - **"Health Workforce":** Categorize here if the primary subject is about the supply, training, distribution, or shortage of healthcare professionals (e.g., nurses, doctors, community health workers).
+                        - *Example:* An article titled "Michigan Public Health Receives $1.8M To Strengthen Maternal And Child Health Workforce" is about the **health workforce**. Even though HRSA provided the funds, the core news is the workforce initiative. This MUST be categorized as "Health Workforce".
+                    - **"Maternal and Child Health News":** Categorize here if the primary subject is the health outcomes, services, or programs directly related to mothers, infants, and children, that is NOT primarily about the workforce.
+                        - *Example:* An article about a new program to reduce infant mortality rates.
+                    - **"Rural Health News":** Categorize here if the primary subject is healthcare access, hospital closures, telehealth expansion, or health disparities specifically in rural areas.
+                        - *Example:* An article about a new telehealth network connecting rural patients to specialists.
+                    - **"HRSA News/AHA News":** This is a more specific category. Categorize here ONLY if the primary subject is HRSA or AHA itself, such as a major agency-wide policy change, a new program that spans multiple other categories, a report on HRSA's overall budget, or a direct announcement from the HRSA Administrator about the agency's direction.
+                        - *Example:* An article about the confirmation of a new HRSA Administrator.
+                    - **"Vaccine Injury News":** The primary subject MUST be about the National Vaccine Injury Compensation Program (VICP), the Countermeasures Injury Compensation Program (CICP), or specific cases/reports of vaccine adverse events. General news about vaccine policy, development, or mandates is NOT relevant and should be excluded.
+                    - **"HHS Restructuring News":** Primary subject is a major reorganization, budget overhaul, or policy shift at the HHS department level.
+                    - **"Organ News":** Primary subject is organ donation/transplantation networks, policies, or outcomes.
+                    - **"HIV/AIDS News":** Primary subject is the Ryan White Program, or HIV care and prevention initiatives.
+
+                **3. Content & Formatting Mandates:**
+                - **Headline Formatting (MANDATORY - Follow these steps precisely):**
+                    - Step 1: Identify and extract the exact, original headline from the main article text.
+                    - Step 2: Iterate through each word of the original headline.
+                    - Step 3: For each word, check if its first letter is already capitalized.
+                        - If YES (e.g., "HRSA", "CHDI", "HealthPlan"), you MUST leave the word completely unchanged.
+                        - If NO (e.g., "and", "of", "in", "the"), you MUST capitalize its first letter.
+                    - Step 4: Assemble the modified words back into the final headline.
+                    - Step 5: Remove any period from the very end of the final headline.
+                
+                - **Body (Strict Formatting Required):**
+                    - **Text Standardization:** If the source text uses "H.H.S." with periods, you MUST standardize it to "HHS" without periods in your final summary.
+                    - **Step 1: Extract Key Information:**
+                        - **Source:** Find the primary news source name (e.g., "Virginia Scope", "Department of Justice").
+                        - **Date:** Find the publication date and format it as M/D (e.g., "6/18"). Use today's date (${currentDate}) to calculate relative dates like "yesterday".
+                        - **Author:** If an author is listed, extract only their last name (e.g., "Lindberg").
+                    - **Step 2: Generate the Summary:**
+                        - Write a concise, neutral, fact-based summary of the article's main points. The summary should be 2-3 sentences long.
+                    - **Step 3: Assemble the Final Body Text (MANDATORY FORMAT):**
+                        - Start with the **Source** name, followed by a space.
+                        - Add the **(Date, AuthorLastName)** in parentheses. If the author is missing, use **(Date)**.
+                        - Follow the closing parenthesis with a space and a single, lowercase connecting verb (e.g., "reports", "announces", "details").
+                        - Append the 2-3 sentence summary you generated.
+                    - **Bolding**:
+                        - **HRSA Mandate (NON-NEGOTIABLE)**: If the source text mentions "HRSA" or "Health Resources and Services Administration", your summary MUST include the full, bolded phrase **Health Resources and Services Administration (HRSA)**.
+                        - **Required Bolding:** In addition to the above, you MUST bold the following specific terms whenever they appear in your summary, using markdown (e.g., **term**). The terms are: **Secretary Robert F Kennedy Jr.**, **Administrator Thomas Engels**, **340B program**.
+                
+                **4. Output Format (Strict JSON):**
+                - Your final output MUST be a single, valid JSON array of objects. Each object MUST have the following keys: "category", "headline", "body".
+                - If no valid news articles are found, return an empty array: [].
+                - Do not include any markdown formatting (like \`\`\`json\`) or any text outside of the JSON array itself.
+
+                **ARTICLE TEXT TO PROCESS:**
+                ---
+                ${articleText}
+                ---
+              `;
+        }
+        
+        function getNiaGenerationPrompt(articleText) {
+              const currentDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+              return `
+                You are an AI assistant specializing in creating concise news clips about Alzheimer's, dementia, and aging research, following the National Institute on Aging (NIA) style guide. Your task is to analyze the provided article text and convert it into a structured JSON array of clip objects.
+
+                **Master Guide & Rules:**
+
+                **1. Analysis:**
+                - Identify the main news story in the provided text, ignoring irrelevant website elements like menus, ads, or footers.
+                - If the text is not a news article (e.g., opinion piece, advertisement), you MUST return an empty JSON array: [].
+
+                **2. JSON Output Structure:**
+                - Your final output MUST be a single, valid JSON array of objects.
+                - Each object MUST have four keys: "category", "headline", "body", and "journalName".
+
+                **3. Content Generation for each JSON object:**
+
+                **a. "category" field:**
+                - You MUST assign ONE of the following categories based on the article's content:
+                    - "NIA-Funded": Use if the article explicitly states research was funded by the NIA or an NIA grant.
+                    - "NIA-Mentioned": Use if the article mentions the NIA (e.g., quotes an official, references a workshop) but does not state funding.
+                    - "General Alzheimer's/Dementia": Use for all other relevant articles about Alzheimer's, dementia, or aging that do not mention the NIA.
+
+                **b. "headline" field:**
+                - Extract the exact, original headline from the article.
+                - **Apply Capitalization Rule:** For each word in the headline, capitalize its first letter UNLESS the word is already partially or fully capitalized (e.g., "UCI", "Alzheimer's"). Assemble the modified words back into the final headline string. The final headline must not end in a period.
+
+                **c. "body" field (Strict Formatting):**
+                - This field MUST contain the summary part of the clip ONLY. It should NOT include the headline or any markdown.
+                - **Step 1: Extract Metadata & Summary:**
+                    - Extract the Source, Date (M/D), and Author (last name only, if present).
+                    - Write a concise, 1-3 sentence summary of the article.
+                    - **MANDATORY:** If the article is about a scientific study, the summary MUST include the name of the journal where it was published (e.g., "a study in Nature Human Behaviour found...") or, if the journal is not named, it MUST use the phrase "a study found that...". This is essential for hyperlinking.
+                - **Step 2: Assemble the Body String:**
+                    - The combined metadata and summary format MUST be: \`Source (Date, Author) reports that [Summary].\` or \`Source (Date) reports that [Summary].\`
+                - **Step 3: Append the Label:**
+                    - At the very end of the body string, after a space, append the same category name you used for the "category" field.
+                    - **DO NOT** append a label if the category is "General Alzheimer's/Dementia".
+
+                **d. "journalName" field:**
+                - Analyze the article text for the name of a scientific journal where the research was published (e.g., "Nature Aging", "The Gerontologist", "JAMA").
+                - If a journal name is found, put the exact name in this field as a string.
+                - If no journal name is mentioned, this field MUST be \`null\`.
+
+                **Example of a complete JSON object:**
+                {
+                  "category": "NIA-Funded",
+                  "headline": "UC Irvine Expands National Leadership In Alzheimer's Research With $21 Million Grant",
+                  "body": "UC Irvine News (7/15) reports that a $21 million, five-year National Institute on Aging grant renews UCI MIND’s Alzheimer’s Disease Research Center, enhancing research on Alzheimer’s and related dementias with over 60 faculty from 20+ departments. The funding boosts community engagement and trains future researchers, building on 40 years of innovation. NIA-Funded",
+                  "journalName": null
+                }
+
+                ---
+                **ARTICLE TEXT TO PROCESS:**
+                ${articleText}
+                ---
+
+                Now, generate the JSON array based on the text provided. Do not include any markdown formatting or any text outside of the JSON array itself.
+              `;
+        }
+        
+        function parseJsonClips(responseText, articleText) {
+            let parsedClips;
+            try {
+                const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                parsedClips = JSON.parse(cleanedResponse);
+            } catch (jsonError) {
+                console.error("Failed to parse JSON from Gemini:", jsonError);
+                console.error("Raw response was:", responseText);
+                throw new Error("The AI returned an invalid format. Could not parse the generated clips.");
+            }
+            
+            if (!Array.isArray(parsedClips)) {
+                throw new Error("The AI response was not a valid array of clips.");
+            }
+
+            if (parsedClips.length === 0) {
+                throw new Error("The AI did not generate any valid clips from the provided text. The text might be an opinion piece, or no relevant news was found.");
+            }
+
+            parsedClips.forEach(clipData => {
+                if (clipData.category && clipData.headline && clipData.body) {
+                    temporaryClips.push({
+                        category: clipData.category,
+                        headline: clipData.headline,
+                        body: clipData.body.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'),
+                        journalName: clipData.journalName || null,
+                        originalArticle: articleText,
+                        date: new Date().toISOString().slice(0, 10),
+                        link: '',
+                        studyLink: '',
+                        tempId: `temp-${Date.now()}-${Math.random()}`
+                    });
+                }
+            });
+        }
+
+        function renderTemporaryClips() {
+            if (!currentAgency) return;
+            const outputDiv = document.getElementById(`${currentAgency}-clips-output`);
+            outputDiv.innerHTML = '';
+            const container = document.getElementById(`${currentAgency}-clips-output-container`);
+            const postGenButtons = document.getElementById(`${currentAgency}-post-generation-buttons`);
+
+            if(temporaryClips.length === 0) {
+                container.classList.add('hidden');
+                postGenButtons.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            postGenButtons.classList.remove('hidden');
+
+            temporaryClips.forEach(clip => {
+                const clipEl = document.createElement('div');
+                clipEl.className = 'clip-item';
+                clipEl.id = clip.tempId;
+                
+                const isNia = currentAgency === 'NIA';
+                const bodyHtml = formatClipBody(clip);
+                let contentHtml;
+                if (isNia) {
+                    contentHtml = `<p><strong>${clip.headline}.</strong> ${bodyHtml}</p>`;
+                } else {
+                    contentHtml = `<p><strong>${clip.headline}</strong></p><p>${bodyHtml}</p>`;
+                }
+
+                const linkInputsHtml = `
+                    ${isNia ? `
+                    <div class="mt-3">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Study Link (for Journal)</label>
+                        <input type="url" placeholder="Paste study link to hyperlink journal name..." value="${clip.studyLink || ''}" oninput="updateTemporaryClipStudyLink('${clip.tempId}', this.value)" class="w-full p-1 border border-slate-300 rounded-md text-sm font-sans">
+                    </div>` : ''}
+                    <div class="mt-2">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Source Link</label>
+                        <input type="url" placeholder="Add source link..." value="${clip.link || ''}" oninput="updateTemporaryClipLink('${clip.tempId}', this.value)" class="w-full p-1 border border-slate-300 rounded-md text-sm font-sans">
+                    </div>
+                `;
+
+                clipEl.innerHTML = `
+                    <div class="clip-actions">
+                        <div class="refine-clip-btn clip-action-btn" title="Refine Summary" onclick="openRefineModal('${clip.tempId}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                        </div>
+                        <div class="remove-clip-btn clip-action-btn" title="Discard Clip" onclick="removeTemporaryClip('${clip.tempId}')">&times;</div>
+                    </div>
+                    <div class="clip-item-content">
+                        <p><strong>Category: ${clip.category}</strong></p>
+                        ${contentHtml}
+                        ${linkInputsHtml}
+                    </div>`;
+                outputDiv.appendChild(clipEl);
+            });
+        }
+        
+        window.updateTemporaryClipLink = function(tempId, newLink) {
+            const clipIndex = temporaryClips.findIndex(c => c.tempId === tempId);
+            if (clipIndex !== -1) {
+                temporaryClips[clipIndex].link = newLink;
+                const clipEl = document.getElementById(tempId);
+                if (clipEl) {
+                    const contentDiv = clipEl.querySelector('.clip-item-content');
+                    const isNia = currentAgency === 'NIA';
+                    const bodyParagraph = contentDiv.querySelector(isNia ? 'p:nth-of-type(2)' : 'p:nth-of-type(3)');
+
+                    if (bodyParagraph) {
+                        const formattedBody = formatClipBody(temporaryClips[clipIndex]);
+                        if (isNia) {
+                            bodyParagraph.innerHTML = `<strong>${temporaryClips[clipIndex].headline}.</strong> ${formattedBody}`;
+                        } else {
+                            bodyParagraph.innerHTML = formattedBody;
+                        }
+                    }
+                }
+            }
+        };
+
+
+        window.updateTemporaryClipStudyLink = function(tempId, newLink) {
+            const clipIndex = temporaryClips.findIndex(c => c.tempId === tempId);
+            if (clipIndex !== -1) {
+                temporaryClips[clipIndex].studyLink = newLink;
+                const clipEl = document.getElementById(tempId);
+                if(clipEl) {
+                    const contentDiv = clipEl.querySelector('.clip-item-content');
+                    const bodyParagraph = contentDiv.querySelector('p:nth-of-type(2)');
+                    if(bodyParagraph) {
+                        const formattedBody = formatClipBody(temporaryClips[clipIndex]);
+                        bodyParagraph.innerHTML = `<strong>${temporaryClips[clipIndex].headline}.</strong> ${formattedBody}`;
+                    }
+                }
+            }
+        }
+
+        window.removeTemporaryClip = function(tempClipId) {
+            temporaryClips = temporaryClips.filter(c => c.tempId !== tempClipId);
+            renderTemporaryClips();
+        }
+
+        window.clearTemporaryClips = function() {
+            temporaryClips = [];
+            renderTemporaryClips();
+            document.getElementById(`${currentAgency}-article-input`).value = '';
+            const scanResults = document.getElementById(`${currentAgency}-scan-results-output`);
+            if (scanResults) scanResults.classList.add('hidden');
+        }
+        
+        window.openRefineModal = function(tempClipId) {
+            const clip = temporaryClips.find(c => c.tempId === tempClipId);
+            if (!clip) return;
+            clipToRefineId = tempClipId;
+            const bodyHtml = formatClipBody(clip);
+            const contentHtml = currentAgency === 'NIA' 
+                ? `<strong>${clip.headline}.</strong> ${bodyHtml}` 
+                : `<p><strong>${clip.headline}</strong><br/>${bodyHtml}</p>`;
+            document.getElementById('refine-original-summary').innerHTML = contentHtml;
+            document.getElementById('refine-prompt-input').value = '';
+            document.getElementById('refineModal').classList.remove('hidden');
+        }
+
+        window.closeRefineModal = function() {
+            document.getElementById('refineModal').classList.add('hidden');
+            clipToRefineId = null;
+        }
+
+        window.refineClip = async function() {
+            const clip = temporaryClips.find(c => c.tempId === clipToRefineId);
+            const refineInstruction = document.getElementById('refine-prompt-input').value;
+            if(!clip || !refineInstruction.trim()) {
+                showAlert("Please enter an instruction to refine the summary.");
+                return;
+            }
+            
+            toggleSpinner('refine-btn', true);
+            
+            const prompt = currentAgency === 'HRSA' 
+                ? getHrsaRefinePrompt(clip, refineInstruction) 
+                : getNiaRefinePrompt(clip, refineInstruction);
+
+            try {
+                const responseText = await callGemini(prompt, true);
+                const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const revisedClip = JSON.parse(cleanedResponse);
+
+                if (revisedClip && revisedClip.headline && revisedClip.body) {
+                    const clipIndex = temporaryClips.findIndex(c => c.tempId === clipToRefineId);
+                    if (clipIndex !== -1) {
+                        temporaryClips[clipIndex].headline = revisedClip.headline;
+                        temporaryClips[clipIndex].body = revisedClip.body.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); 
+                        if(currentAgency === 'NIA' && revisedClip.journalName) {
+                            temporaryClips[clipIndex].journalName = revisedClip.journalName;
+                        }
+                    }
+                    renderTemporaryClips();
+                    closeRefineModal();
+                } else {
+                    throw new Error("AI response was not in the expected format.");
+                }
+            } catch (error) {
+                console.error("Error refining clip:", error);
+                showAlert(`An error occurred during refinement: ${error.message}`);
+            } finally {
+                toggleSpinner('refine-btn', false);
+            }
+        }
+        
+        function getHrsaRefinePrompt(clip, refineInstruction) {
+            return `
+                You are an expert news summary editor. Your task is to revise a news clip based on a user's instruction. You will be given the current clip data, the user's request, and the original article text for context. Your output MUST be a single, valid JSON object with two keys: \`headline\` and \`body\`.
+
+                **CRITICAL RULES:**
+
+                1.  **HEADLINE:**
+                    -   You **MUST NOT** change the headline unless the user's request is *explicitly* about changing the headline text.
+                    -   If the headline is not being changed, return the original headline text **EXACTLY** as provided in the "Current Clip Data".
+                    -   If you are asked to change the headline, you MUST find the original headline within the "Original Article Text" provided below. Then, apply this **strict formatting rule**:
+                        - Iterate through each word of the original headline.
+                        - If a word's first letter is already capitalized (e.g., "HRSA", "CHDI"), leave the word unchanged.
+                        - If a word's first letter is lowercase (e.g., "and", "of"), capitalize its first letter.
+                        - The final headline must not end in a period.
+
+                2.  **BODY:**
+                    - The body's format must follow the examples precisely.
+                    - **Final Assembly (MANDATORY FORMAT):**
+                        - Start with the **Source** name, followed by a space.
+                        - Add the **(Date, AuthorLastName)** in parentheses. If the author is missing, use **(Date)**.
+                        - Follow the closing parenthesis with a space and a single, lowercase connecting verb (e.g., "reports", "announces", "details").
+                        - Append the 2-3 sentence summary.
+                    - **HRSA MENTION:** If the user's request contains "include HRSA mention" or similar phrasing, you MUST ensure the full, bolded phrase \`**Health Resources and Services Administration (HRSA)**\` is present in the summary. If it's already there, do nothing. If it's not, add it in a grammatically correct way.
+                ---
+                **1. Current Clip Data:**
+                {
+                    "headline": "${clip.headline}",
+                    "body": "${clip.body.replace(/<strong>(.*?)<\/strong>/g, '**$1**')}" 
+                }
+                ---
+                **2. User's Refinement Request:**
+                "${refineInstruction}"
+                ---
+                **3. Original Article Text (for context):**
+                ${clip.originalArticle}
+                ---
+
+                Now, provide ONLY the revised JSON object below, with no other text or markdown.
+            `;
+        }
+        
+        function getNiaRefinePrompt(clip, refineInstruction) {
+            return `
+                You are an expert news summary editor for the National Institute on Aging (NIA). Your task is to revise a news clip based on a user's instruction. You will be given the current clip data, the user's request, and the original article text for context. Your output MUST be a single, valid JSON object with the keys: \`headline\`, \`body\`, and \`journalName\`.
+
+                **CRITICAL RULES:**
+
+                1.  **HEADLINE:**
+                    -   You **MUST NOT** change the headline unless the user's request is *explicitly* about changing the headline text.
+                    -   If the headline is not being changed, return the original headline text **EXACTLY** as provided.
+                    -   If asked to change it, re-apply the capitalization rule: Capitalize the first letter of each word unless it's already capitalized (e.g., "UCI").
+
+                2.  **BODY:**
+                    - The body's format must be: \`Source (Date, Author) reports that [Summary]. [Label]\`.
+                    - You MUST revise the summary according to the user's instruction, ensuring it remains concise (1-3 sentences).
+                    - **MANDATORY:** If the article is about a scientific study, the summary MUST include the name of the journal (e.g., "a study in Nature Human Behaviour found...") or, if the journal is not named, it MUST use the phrase "a study found that...".
+                    - The final label (e.g., "NIA-Funded") MUST be preserved at the end of the body string if it was present in the original.
+
+                3.  **journalName:**
+                    - Re-evaluate the original article text. If a journal name is present, include it. If not, the value MUST be \`null\`.
+
+                ---
+                **1. Current Clip Data:**
+                {
+                    "headline": "${clip.headline}",
+                    "body": "${clip.body.replace(/<strong>(.*?)<\/strong>/g, '$1')}",
+                    "journalName": ${JSON.stringify(clip.journalName)}
+                }
+                ---
+                **2. User's Refinement Request:**
+                "${refineInstruction}"
+                ---
+                **3. Original Article Text (for context):**
+                ${clip.originalArticle}
+                ---
+
+                Now, provide ONLY the revised JSON object below, with no other text or markdown.
+            `;
+        }
+
+        function listenForLibraryChanges() {
+            if (unsubscribeFromLibrary) {
+                unsubscribeFromLibrary(); 
+            }
+
+            if (!db || !clipsCollectionPath) {
+                console.error("listenForLibraryChanges called before Firebase is fully ready.");
+                setConnectionStatus("DB Error", "text-red-500");
+                return;
+            }
+            
+            console.log(`Setting up Firestore listener for ${currentAgency} on path:`, clipsCollectionPath);
+            const q = collection(db, clipsCollectionPath);
+
+            unsubscribeFromLibrary = onSnapshot(q, (querySnapshot) => {
+                const newLibrary = [];
+                querySnapshot.forEach((doc) => {
+                    newLibrary.push({ id: doc.id, ...doc.data() });
+                });
+                console.log(`Firestore snapshot received: ${newLibrary.length} clips found for ${currentAgency}.`);
+                clipLibrary = newLibrary;
+                updateAllLibraryDependentUI();
+                setConnectionStatus("Connected", "text-green-500");
+            }, (error) => {
+                console.error("Firestore listener error:", error);
+                let detailedMessage = `Error loading clips from database: ${error.message}. This is very likely a Firestore Security Rule issue.`;
+                if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                    detailedMessage += `\n\nAs an admin, your account (${auth.currentUser.email}) is being denied permission to read from the collaborative collection at path: "${clipsCollectionPath}". Please check your Firebase project's Firestore Security Rules to ensure that authenticated users have read access to this path. A common rule for this is 'allow read: if request.auth != null;'.`;
+                } else {
+                    detailedMessage += `\n\nPlease check your Firebase project's Firestore Security Rules to ensure that authenticated users can read from the public collection at path: "${clipsCollectionPath}".`;
+                }
+                showAlert(detailedMessage);
+                setConnectionStatus("Permissions Error", "text-red-500");
+            });
+        }
+
+        function updateAllLibraryDependentUI() {
+            if (!currentAgency) return;
+            updateLibraryCount();
+            updateDateSelector();
+            updateLibraryManagementDateSelector();
+            updateArchiveDateSelector();
+            
+            const activeToolContainer = document.querySelector('.tool-container.active');
+            if (!activeToolContainer) return;
+
+            if (activeToolContainer.querySelector(`#${currentAgency}-archive`)?.classList.contains('active')) {
+                renderClipArchive();
+            }
+            if (activeToolContainer.querySelector(`#${currentAgency}-library`)?.classList.contains('active')) {
+                const selector = activeToolContainer.querySelector(`#${currentAgency}-library-date-selector`);
+                if (selector) renderLibraryClipsForRemoval(selector.value);
+            }
+        }
+        
+        window.saveClipsToLibrary = async function() {
+            if (!clipsCollectionPath) {
+                showAlert("Cannot save clips: Not connected to the database. Please refresh.");
+                return;
+            }
+            if (temporaryClips.length === 0) {
+                showAlert("No clips to save.");
+                return;
+            }
+            
+            const batch = writeBatch(db);
+            temporaryClips.forEach(clip => {
+                const { tempId, ...clipData } = clip;
+                const newClipRef = doc(collection(db, clipsCollectionPath));
+                batch.set(newClipRef, clipData);
+            });
+
+            try {
+                await batch.commit();
+                clearTemporaryClips();
+                showAlert(`Clips saved successfully to the ${currentAgency} library!`);
+            } catch (error) {
+                console.error(`Error saving clips to Firestore for ${currentAgency}:`, error);
+                showAlert(`Failed to save clips: ${error.message}`);
+            }
+        }
+
+        function updateLibraryCount() {
+            const countEl = document.getElementById(`${currentAgency}-library-count`);
+            if(countEl) countEl.textContent = clipLibrary.length;
+        }
+
+        window.clearLibrary = function() {
+            if (!isAdmin) {
+                showAlert("You must be an admin to clear the library.");
+                return;
+            }
+            if (!clipsCollectionPath) {
+                showAlert("Cannot clear library: Not connected to the database. Please refresh.");
+                return;
+            }
+            showConfirmModal(
+                `Are you sure you want to permanently delete all clips in the ${currentAgency} library? This cannot be undone.`,
+                async () => {
+                    const clipsQuery = collection(db, clipsCollectionPath);
+                    try {
+                        const querySnapshot = await getDocs(clipsQuery);
+                        const batch = writeBatch(db);
+                        querySnapshot.forEach((doc) => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
+                        showAlert(`${currentAgency} library has been cleared.`);
+                    } catch (error) {
+                        console.error("Error clearing library:", error);
+                        showAlert(`Failed to clear library: ${error.message}`);
+                    }
+                }
+            );
+        }
+
+        window.removeClipFromLibrary = function(clipId) {
+             if (!isAdmin) {
+                showAlert("You must be an admin to remove clips from the library.");
+                return;
+            }
+            if (!clipsCollectionPath) {
+                showAlert("Cannot remove clip: Not connected to the database. Please refresh.");
+                return;
+            }
+            const clip = clipLibrary.find(c => c.id === clipId);
+            if (!clip) return;
+
+            showConfirmModal(
+                `Are you sure you want to remove the clip titled "${clip.headline}" from the library?`,
+                async () => {
+                    const clipDocRef = doc(db, clipsCollectionPath, clipId);
+                    try {
+                        await deleteDoc(clipDocRef);
+                        showAlert('Clip removed successfully.');
+                    } catch (error) {
+                        console.error("Error removing clip:", error);
+                        showAlert(`Failed to remove clip: ${error.message}`);
+                    }
+                }
+            );
+        }
+
+        async function parseAndStoreImportedClips(text, fileDate = 'historical') {
+            const prompt = currentAgency === 'HRSA' ? getHrsaImportParsePrompt(text) : getNiaImportParsePrompt(text);
+            const categoryOrder = currentAgency === 'HRSA' ? hrsaCategoryOrder : niaCategoryOrder;
+            
+            try {
+                let responseText = await callGemini(prompt, true);
+                
+                if (responseText.includes('```json')) {
+                    responseText = responseText.split('```json\n')[1].split('\n```')[0];
+                } else {
+                    const startIndex = responseText.indexOf('[');
+                    const endIndex = responseText.lastIndexOf(']');
+                    if (startIndex > -1 && endIndex > -1) {
+                        responseText = responseText.substring(startIndex, endIndex + 1);
+                    }
+                }
+                
+                const importedClips = JSON.parse(responseText);
+
+                if (!Array.isArray(importedClips)) {
+                    throw new Error("AI response could not be parsed into a valid array of clips.");
+                }
+
+                const newClips = importedClips.map(clip => ({
+                    date: fileDate, 
+                    headline: (clip.headline || "Untitled"),
+                    body: clip.body || "No content.",
+                    category: clip.category && categoryOrder.includes(clip.category) ? clip.category : 'Imported',
+                    link: '',
+                    studyLink: '',
+                    journalName: clip.journalName || null,
+                }));
+
+                const batch = writeBatch(db);
+                newClips.forEach(clip => {
+                    const newDocRef = doc(collection(db, clipsCollectionPath));
+                    batch.set(newDocRef, clip);
+                });
+                await batch.commit();
+
+                return newClips.length;
+            } catch (error) {
+                 console.error(`An error occurred during a parsing operation: ${error.message}.`);
+                 return 0;
+            }
+        }
+        
+        function getHrsaImportParsePrompt(text) {
+            const sanitizedText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            return `
+                You are a data parsing AI. You will be given the raw text content from a past HRSA news briefing document. Your task is to meticulously parse this text and extract every individual news clip.
+                A clip is defined by a bolded headline followed by a paragraph of summary text. You must also identify the category header that precedes a group of clips. These headers are usually on their own line and are often bold (e.g., "HRSA News/AHA News", "Rural Health").
+                You must return a valid JSON array of objects. Each object in the array represents one clip and must have three keys: "headline", "body", and "category".
+                - The "category" for a clip should be the most recently parsed category header.
+                - If you cannot determine a category for a clip, use the value "Imported".
+                
+                **CRITICAL RULE:** All double quotes (") within the headline and body text MUST be properly escaped with a backslash (\\"). Failure to escape quotes will result in invalid JSON.
+                
+                Your output should be a clean JSON array with no extra text or markdown formatting.
+                Now, parse the following text:\n---\n${sanitizedText}\n---
+            `;
+        }
+        
+        function getNiaImportParsePrompt(text) {
+            const sanitizedText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            return `
+                You are a data parsing AI for NIA news clips. You will be given raw text from a past briefing document. Your task is to parse this text and extract every individual news clip.
+                An NIA clip starts with a bolded headline on its own line, followed by a summary paragraph that includes the source and date. The clip ends with a label like "NIA-Funded" or "NIA-Mentioned".
+
+                You must return a valid JSON array of objects. Each object represents one clip and must have FOUR keys: "headline", "body", "category", and "journalName".
+                - "headline": The capitalized headline text.
+                - "body": The summary text ONLY, starting from the source name (e.g., "UC Irvine News...") up to and including the label (e.g., "...innovation. NIA-Funded").
+                - "category": The label found at the end of the clip (e.g., "NIA-Funded", "NIA-Mentioned"). If no label, use "General Alzheimer's/Dementia".
+                - "journalName": If a journal is mentioned (e.g., "in Nature Aging"), extract its name. Otherwise, this must be null.
+
+                **CRITICAL RULE:** All double quotes (") within the text MUST be properly escaped with a backslash (\\").
+                
+                Your output should be a clean JSON array with no extra text or markdown formatting.
+                Now, parse the following text:\n---\n${sanitizedText}\n---
+            `;
+        }
+
+        window.importFromText = async function() {
+            if (!isAdmin) {
+                showAlert("You must be an admin to import clips.");
+                return;
+            }
+            if (!clipsCollectionPath) {
+                showAlert("Cannot import: Not connected to the database. Please refresh.");
+                return;
+            }
+            const historicalText = document.getElementById(`${currentAgency}-historical-input`).value;
+            if (!historicalText.trim()) {
+                showAlert('Please paste text from past reports into the box to import.');
+                return;
+            }
+            toggleSpinner(`${currentAgency}-import-text-btn`, true);
+            const importedCount = await parseAndStoreImportedClips(historicalText);
+            if (importedCount > 0) {
+                 document.getElementById(`${currentAgency}-historical-input`).value = '';
+                 showAlert(`Successfully imported ${importedCount} clips into the library.`);
+            } else {
+                 showAlert("Could not find any valid clips to import from the text provided.");
+            }
+            toggleSpinner(`${currentAgency}-import-text-btn`, false);
+        }
+        
+        window.importFromDocxFiles = async function() {
+            if (!isAdmin) {
+                showAlert("You must be an admin to import clips.");
+                return;
+            }
+            if (!clipsCollectionPath) {
+                showAlert("Cannot import: Not connected to the database. Please refresh.");
+                return;
+            }
+            const fileInput = document.getElementById(`${currentAgency}-docx-input`);
+            const files = fileInput.files;
+            if (files.length === 0) {
+                showAlert('Please select one or more .docx files to import.');
+                return;
+            }
+            toggleSpinner(`${currentAgency}-import-docx-btn`, true);
+
+            const fileReadPromises = Array.from(files).map(file => {
+                let dateMatch = file.name.match(/(\d{1,2})_(\d{1,2})_(\d{4})/);
+                let fileDate = 'historical';
+                if (dateMatch) {
+                    const year = dateMatch[3];
+                    const month = dateMatch[1].padStart(2, '0');
+                    const day = dateMatch[2].padStart(2, '0');
+                    fileDate = `${year}-${month}-${day}`;
+                } else {
+                    dateMatch = file.name.match(/NIA_News_Clips_(\d{1,2})-(\d{1,2})-(\d{2,4})/i);
+                    if (dateMatch) {
+                        let year = dateMatch[3];
+                        if (year.length === 2) {
+                            year = '20' + year;
+                        }
+                        const month = dateMatch[1].padStart(2, '0');
+                        const day = dateMatch[2].padStart(2, '0');
+                        fileDate = `${year}-${month}-${day}`;
+                    }
+                }
+
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        mammoth.extractRawText({ arrayBuffer: event.target.result })
+                            .then(result => resolve({ text: result.value, date: fileDate }))
+                            .catch(reject);
+                    };
+                    reader.onerror = error => reject(error);
+                    reader.readAsArrayBuffer(file);
+                });
+            });
+
+            try {
+                const allFileData = await Promise.all(fileReadPromises);
+                let totalImported = 0;
+                
+                for (const fileData of allFileData) {
+                    if (fileData.text && fileData.text.trim().length > 0) {
+                        const importedCount = await parseAndStoreImportedClips(fileData.text, fileData.date);
+                        if (importedCount > 0) {
+                            totalImported += importedCount;
+                        }
+                    }
+                }
+
+                if (totalImported > 0) {
+                    showAlert(`Successfully imported a total of ${totalImported} clips from ${files.length} files.`);
+                    fileInput.value = '';
+                } else {
+                    showAlert("Could not find any valid clips to import from the selected files.");
+                }
+            } catch (error) {
+                showAlert(`Error processing .docx files: ${error.message}`);
+            } finally {
+                toggleSpinner(`${currentAgency}-import-docx-btn`, false);
+            }
+        }
+
+        function updateLibraryManagementDateSelector() {
+            const selector = document.getElementById(`${currentAgency}-library-date-selector`);
+            if (!selector) return;
+            
+            const currentVal = selector.value;
+            selector.innerHTML = ''; 
+
+            let options = '<option value="">All Dates</option>';
+            options += '<option value="historical">Imported Historical</option>';
+
+            const dates = [...new Set(clipLibrary.map(clip => clip.date))]
+                .filter(date => date !== 'historical')
+                .sort((a,b) => b.localeCompare(a)); 
+
+            dates.forEach(date => {
+                options += `<option value="${date}">${date}</option>`;
+            });
+
+            selector.innerHTML = options;
+
+            if (Array.from(selector.options).some(opt => opt.value === currentVal)) {
+                selector.value = currentVal;
+            }
+            
+            renderLibraryClipsForRemoval(selector.value);
+        }
+
+        function formatClipBody(clip) {
+            let bodyHtml = clip.body || '';
+            bodyHtml = bodyHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+            if (currentAgency === 'NIA' && clip.studyLink) {
+                if (clip.journalName) {
+                    const escapedJournalName = clip.journalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(${escapedJournalName})`, 'gi');
+                    bodyHtml = bodyHtml.replace(regex, `<a href="${clip.studyLink}" target="_blank" style="color: blue; text-decoration: underline;">$1</a>`);
+                } else {
+                    const regex = new RegExp(`(a study|the study)`, 'i');
+                     if (regex.test(bodyHtml)) {
+                        bodyHtml = bodyHtml.replace(regex, `<a href="${clip.studyLink}" target="_blank" style="color: blue; text-decoration: underline;">$1</a>`);
+                    }
+                }
+            }
+
+            if (clip.link) {
+                const match = bodyHtml.match(/^([^(]+)(?=\s\()/);
+                if (match) {
+                    const sourceText = match[1].trim();
+                    const restOfBody = bodyHtml.substring(sourceText.length);
+                    bodyHtml = `<a href="${clip.link}" target="_blank" style="color: blue; text-decoration: underline;">${sourceText}</a>${restOfBody}`;
+                }
+            }
+            return bodyHtml;
+        }
+
+        window.renderLibraryClipsForRemoval = function(date) {
+            const displayDiv = document.getElementById(`${currentAgency}-library-clips-display`);
+            if (!displayDiv) return;
+            displayDiv.innerHTML = '';
+
+            const clipsToRender = date ? clipLibrary.filter(c => c.date === date) : clipLibrary;
+
+            if (clipsToRender.length === 0) {
+                displayDiv.innerHTML = `<p class="text-center text-slate-500 p-4">No clips found for this selection.</p>`;
+                return;
+            }
+
+            clipsToRender.forEach(clip => {
+                const clipEl = document.createElement('div');
+                clipEl.className = 'clip-item';
+                
+                const headlineDisplay = clip.link ? `<a href="${clip.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${clip.headline}</a>` : clip.headline;
+                const bodyHtml = formatClipBody(clip);
+                const isNia = currentAgency === 'NIA';
+                const contentHtml = isNia ? `<p><strong>${clip.headline}.</strong> ${bodyHtml}</p>` : `<p><strong>${headlineDisplay}</strong></p><p>${bodyHtml}</p>`;
+
+                clipEl.innerHTML = `
+                    <div class="clip-actions">
+                         <div class="refine-clip-btn clip-action-btn" title="Edit Clip" onclick="openArchiveEditModal('${clip.id}')">
+                              <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                         </div>
+                        <div class="remove-clip-btn clip-action-btn" title="Remove from Library" onclick="removeClipFromLibrary('${clip.id}')">&times;</div>
+                    </div>
+                    <div class="clip-item-content">
+                        <p><strong>${clip.category}</strong></p>
+                        ${contentHtml}
+                    </div>`;
+                displayDiv.appendChild(clipEl);
+            });
+        }
+        
+        function updateArchiveDateSelector() {
+            const selector = document.getElementById(`${currentAgency}-archive-date-filter`);
+            if (!selector) return;
+
+            const currentVal = selector.value;
+            selector.innerHTML = '<option value="">All Dates</option>';
+            const dates = [...new Set(clipLibrary.map(clip => clip.date))].sort((a,b) => b.localeCompare(a));
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date === 'historical' ? 'Imported Historical' : date;
+                selector.appendChild(option);
+            });
+            if (Array.from(selector.options).some(opt => opt.value === currentVal)) {
+                selector.value = currentVal;
+            }
+        }
+
+        window.openArchiveEditModal = function(clipId) {
+            const clip = clipLibrary.find(c => c.id === clipId);
+            if (!clip) {
+                showAlert('Could not find the clip to edit.');
+                return;
+            }
+            clipToEditInArchiveId = clipId;
+            document.getElementById('archive-edit-headline').value = clip.headline;
+            document.getElementById('archive-edit-body').value = clip.body.replace(/<[^>]*>?/gm, '');
+            document.getElementById('archive-edit-link').value = clip.link || '';
+            document.getElementById('archiveEditModal').classList.remove('hidden');
+        }
+
+        window.closeArchiveEditModal = function() {
+            document.getElementById('archiveEditModal').classList.add('hidden');
+            clipToEditInArchiveId = null;
+        }
+
+        window.saveArchiveEdit = async function() {
+            if (!clipToEditInArchiveId || !clipsCollectionPath) return;
+
+            const newHeadline = document.getElementById('archive-edit-headline').value;
+            const newBody = document.getElementById('archive-edit-body').value;
+            const newLink = document.getElementById('archive-edit-link').value;
+            
+            const clipDocRef = doc(db, clipsCollectionPath, clipToEditInArchiveId);
+            const updatedData = {
+                headline: newHeadline,
+                body: newBody,
+                link: newLink
+            };
+
+            try {
+                await updateDoc(clipDocRef, updatedData);
+                closeArchiveEditModal();
+                showAlert('Clip updated successfully.');
+            } catch(error) {
+                console.error("Error updating clip: ", error);
+                showAlert(`Failed to update clip: ${error.message}`);
+            }
+        }
+
+        window.renderClipArchive = function() {
+            if (!currentAgency) return;
+            const outputDiv = document.getElementById(`${currentAgency}-archive-output`);
+            const searchTerm = document.getElementById(`${currentAgency}-archive-search-input`).value;
+            const selectedDate = document.getElementById(`${currentAgency}-archive-date-filter`).value;
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+            let filteredClips = clipLibrary;
+
+            if (selectedDate) {
+                filteredClips = filteredClips.filter(clip => clip.date === selectedDate);
+            }
+
+            if (searchTerm) {
+                filteredClips = filteredClips.filter(clip => {
+                    const headline = (clip.headline || '').toLowerCase();
+                    const body = (clip.body || '').toLowerCase();
+                    return headline.includes(lowerCaseSearchTerm) || body.includes(lowerCaseSearchTerm);
+                });
+            }
+
+            if (filteredClips.length === 0) {
+                outputDiv.innerHTML = `<p class="text-slate-500 text-center p-4">No clips found matching your criteria.</p>`;
+                return;
+            }
+
+            outputDiv.innerHTML = '';
+            filteredClips.forEach(clip => {
+                const clipEl = document.createElement('div');
+                clipEl.className = 'clip-item';
+                
+                const bodyHtml = formatClipBody(clip);
+                const isNia = currentAgency === 'NIA';
+                const contentHtml = isNia ? `<p><strong>${clip.headline}.</strong> ${bodyHtml}</p>` : `<p><strong>${clip.headline}</strong></p><p>${bodyHtml}</p>`;
+
+                clipEl.innerHTML = `
+                    <div class="clip-actions">
+                         <div class="refine-clip-btn clip-action-btn" title="Edit Clip" onclick="openArchiveEditModal('${clip.id}')">
+                              <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                         </div>
+                    </div>
+                    <div class="clip-item-content">
+                        <p><strong>${clip.category}</strong></p>
+                        ${contentHtml}
+                    </div>`;
+                outputDiv.appendChild(clipEl);
+            });
+        }
+
+        window.updateClipCategory = async function(clipId, newCategory) {
+            const clipDocRef = doc(db, clipsCollectionPath, clipId);
+            try {
+                await updateDoc(clipDocRef, { category: newCategory });
+            } catch(error) {
+                console.error("Error updating category:", error);
+                showAlert(`Failed to update category: ${error.message}`);
+            }
+        }
+        
+        window.updateClipLink = async function(clipId, linkUrl) {
+            const clipDocRef = doc(db, clipsCollectionPath, clipId);
+            try {
+                await updateDoc(clipDocRef, { link: linkUrl });
+            } catch(error) {
+                console.error("Error updating link:", error);
+                showAlert(`Failed to update link: ${error.message}`);
+            }
+        }
+        
+        window.updateClipStudyLink = async function(clipId, linkUrl) {
+            const clipInLibrary = clipLibrary.find(c => c.id === clipId);
+            if (clipInLibrary) {
+                clipInLibrary.studyLink = linkUrl;
+            }
+            const clipDocRef = doc(db, clipsCollectionPath, clipId);
+            try {
+                await updateDoc(clipDocRef, { studyLink: linkUrl });
+            } catch(error) {
+                console.error("Error updating study link:", error);
+                showAlert(`Failed to update study link: ${error.message}`);
+            }
+        }
+
+        function updateDateSelector() {
+            const selector = document.getElementById(`${currentAgency}-historical-date-selector`);
+            if (!selector) return;
+            const currentVal = selector.value;
+            selector.innerHTML = '<option value="">All Dates</option>';
+            const dates = [...new Set(clipLibrary.map(clip => clip.date))].sort((a,b) => b.localeCompare(a));
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date === 'historical' ? 'Imported Historical' : date;
+                selector.appendChild(option);
+            });
+            if (Array.from(selector.options).some(opt => opt.value === currentVal)) {
+                selector.value = currentVal;
+            }
+            populateClipTable(selector.value);
+        }
+        
+        window.populateClipTable = function(date) {
+            const tableBody = document.getElementById(`${currentAgency}-clips-table-body`);
+            const tableContainer = document.getElementById(`${currentAgency}-clip-selection-table`);
+            if (!tableBody || !tableContainer) return;
+
+            const selectAllCheckbox = document.getElementById(`${currentAgency}-select-all-clips`);
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            
+            const clipsForDate = date ? clipLibrary.filter(c => c.date === date) : clipLibrary;
+            const isNia = currentAgency === 'NIA';
+            const colspan = isNia ? 5 : 4;
+
+            if (clipsForDate.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="${colspan}" class="text-center p-4">No clips found for the selected date.</td></tr>`;
+                tableContainer.classList.add('hidden');
+                return;
+            }
+            
+            tableContainer.classList.remove('hidden');
+            tableBody.innerHTML = '';
+            const categoryOrder = isNia ? niaCategoryOrder : hrsaCategoryOrder;
+
+            clipsForDate.forEach(clip => {
+                const row = document.createElement('tr');
+                row.className = 'bg-white border-b';
+
+                let categoryOptions = '';
+                categoryOrder.forEach(cat => {
+                    const isSelected = clip.category === cat ? 'selected' : '';
+                    categoryOptions += `<option value="${cat}" ${isSelected}>${cat}</option>`;
+                });
+
+                const studyLinkCell = isNia ? `
+                    <td class="px-6 py-4">
+                        <input type="url" class="w-full p-1 border border-slate-300 rounded-md text-sm" placeholder="Link to journal..." value="${clip.studyLink || ''}" onchange="updateClipStudyLink('${clip.id}', this.value)">
+                    </td>
+                ` : '';
+
+                row.innerHTML = `
+                    <td class="w-4 p-4"><input type="checkbox" value="${clip.id}" class="clip-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
+                    <td class="px-6 py-4 font-medium text-gray-900">${clip.headline}</td>
+                    <td class="px-6 py-4">
+                        <input type="url" class="w-full p-1 border border-slate-300 rounded-md text-sm" value="${clip.link || ''}" onchange="updateClipLink('${clip.id}', this.value)">
+                    </td>
+                    ${studyLinkCell}
+                    <td class="px-6 py-4">
+                        <select class="p-1 border border-slate-300 rounded-md text-sm" onchange="updateClipCategory('${clip.id}', this.value)">
+                            ${categoryOptions}
+                        </select>
+                    </td>`;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        window.toggleAllClips = function(checked) {
+             document.querySelectorAll(`#${currentAgency}-clip-selection-table .clip-checkbox`).forEach(checkbox => checkbox.checked = checked);
+            }
+
+        function getFormattedReportDate() {
+            const reportDateInput = document.getElementById(`${currentAgency}-report-date-selector`).value;
+            if (!reportDateInput) return null;
+            const date = new Date(reportDateInput);
+            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+            const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
+            return adjustedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        }
+        
+        function formatTime(timeString) {
+            if (!timeString) return '';
+            const [hour, minute] = timeString.split(':');
+            const hourNum = parseInt(hour, 10);
+            const ampm = hourNum >= 12 ? 'PM' : 'AM';
+            let hour12 = hourNum % 12;
+            if (hour12 === 0) hour12 = 12;
+            return `${hour12}:${minute} ${ampm} EDT`;
+        }
+
+        function getReportHtml() {
+            const selectedCheckboxes = document.querySelectorAll(`#${currentAgency}-clip-selection-table .clip-checkbox:checked`);
+            const reportDateInput = document.getElementById(`${currentAgency}-report-date-selector`).value;
+            const reportTimeInput = document.getElementById(`${currentAgency}-report-time-selector`).value;
+
+            if (!reportDateInput) {
+                showAlert("Please select a date for today's report.");
+                return null;
+            }
+            if (!reportTimeInput) {
+                showAlert("Please select a time for the report.");
+                return null;
+            }
+            if (selectedCheckboxes.length === 0) {
+                showAlert("Please select at least one clip to include in the document.");
+                return null;
+            }
+            
+            const selectedClips = Array.from(selectedCheckboxes).map(cb => {
+                const clipId = cb.value;
+                return clipLibrary.find(c => c.id === clipId);
+            });
+            
+            const clipsByCategory = {};
+            const categoryOrder = currentAgency === 'HRSA' ? hrsaCategoryOrder : niaCategoryOrder;
+            categoryOrder.forEach(cat => clipsByCategory[cat] = []);
+
+            selectedClips.forEach(clip => {
+                const categoryName = clip.category || (currentAgency === 'HRSA' ? 'Imported' : "General Alzheimer's/Dementia");
+                if (!clipsByCategory[categoryName]) {
+                    clipsByCategory[categoryName] = [];
+                }
+                clipsByCategory[categoryName].push(clip);
+            });
+
+            const reportDate = getFormattedReportDate();
+            const formattedTime = formatTime(reportTimeInput);
+
+            let content = `
+                <div style="font-family: Calibri, sans-serif; font-size: 11pt; color: black;">
+                    <p>Date: ${reportDate}, ${formattedTime}</p>
+                    <p><br/></p>
+                    <p><strong>Today’s News Clips</strong></p>
+                    <p><br/></p>`;
+            
+            categoryOrder.forEach(categoryName => {
+                const clips = clipsByCategory[categoryName];
+                if (clips && clips.length > 0) {
+                    content += `<p style="color: #2F5496;"><strong>${categoryName}</strong></p><p><br/></p>`;
+                    
+                    clips.forEach(clip => {
+                        const isNia = currentAgency === 'NIA';
+                        let bodyHtml = formatClipBody(clip);
+                        
+                        if (clip.link) {
+                                     const match = bodyHtml.match(/^([^(]+)(?=\s\()/);
+                                     if (match) {
+                                         const source = match[1].trim();
+                                         const restOfBody = bodyHtml.substring(source.length);
+                                         bodyHtml = `<a href="${clip.link}" target="_blank" style="color: blue; text-decoration: underline;">${source}</a>${restOfBody}`;
+                                     }
+                        }
+
+                        if (isNia) {
+                            content += `<p style="page-break-inside: avoid; margin-bottom: 1em;"><strong>${clip.headline}.</strong> ${bodyHtml}</p>`;
+                        } else {
+                            content += `<p style="page-break-inside: avoid; margin-bottom: 1em;"><strong>${clip.headline}</strong><br/>${bodyHtml}</p>`;
+                        }
+                    });
+                    
+                    content += `<p><br/></p>`;
+                }
+            });
+            
+            content += '</div>';
+            return content;
+        }
+
+        window.createDocumentWithClips = function() {
+            const content = getReportHtml();
+            if (!content) return; 
+
+            const formattedDate = getFormattedReportDate();
+            createDocument(`${currentAgency} Daily Clips for ${formattedDate}`, content);
+        }
+
+        window.exportToPDF = function() {
+            const content = getReportHtml();
+            if (!content) return;
+            
+            const reportDate = document.getElementById(`${currentAgency}-report-date-selector`).value;
+            const filename = `${currentAgency}_Clips_${reportDate}.pdf`;
+
+            const element = document.createElement('div');
+            element.innerHTML = content;
+            
+            const opt = {
+                margin:        0.5, 
+                filename:      filename,
+                image:         { type: 'jpeg', quality: 0.98 },
+                html2canvas:   { scale: 2, useCORS: true },
+                jsPDF:         { unit: 'in', format: 'letter', orientation: 'portrait' },
+                pagebreak:     { mode: ['css', 'legacy'] }
+            };
+
+            html2pdf().from(element).set(opt).save();
+        }
+
+        function createDocument(title, content) {
+            const wrapper = document.getElementById('persistent-document-wrapper');
+            const titleBar = document.getElementById('document-title-bar');
+            const contentWrapper = document.getElementById('document-content-wrapper');
+
+            titleBar.textContent = title;
+            contentWrapper.innerHTML = `<div id="final-document-content" class="p-4">${content}</div>`;
+
+            wrapper.classList.remove('translate-y-full');
+            document.getElementById('toggle-document-btn').textContent = 'Hide';
+            isDocumentVisible = true;
+
+            showAlert('Document generated! It has appeared at the bottom of the screen.');
+        }
+
+        window.toggleDocumentVisibility = function() {
+            const wrapper = document.getElementById('persistent-document-wrapper');
+            const button = document.getElementById('toggle-document-btn');
+            
+            if (isDocumentVisible) {
+                wrapper.classList.add('translate-y-full');
+                button.textContent = 'Show';
+            } else {
+                wrapper.classList.remove('translate-y-full');
+                button.textContent = 'Hide';
+            }
+            isDocumentVisible = !isDocumentVisible;
+        }
+
+        window.copyDocumentToClipboard = function() {
+            const contentToCopy = document.getElementById('final-document-content');
+            if (!contentToCopy) {
+                showAlert('No document content to copy.');
+                return;
+            }
+            const el = document.createElement('div');
+            el.innerHTML = contentToCopy.innerHTML;
+            document.body.appendChild(el);
+            const range = document.createRange();
+            range.selectNode(el);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            try {
+                document.execCommand('copy');
+                showAlert('Copied to clipboard! You can now paste it into Word.');
+            } catch (err) {
+                showAlert('Failed to copy. Please copy manually.');
+            }
+            document.body.removeChild(el);
+            window.getSelection().removeAllRanges();
+        }
+
+        window.scanNewClipsForDuplicates = async function() {
+            if (!currentAgency) return;
+            if (temporaryClips.length === 0) {
+                showAlert("Please generate new clips first before scanning.");
+                return;
+            }
+
+            toggleSpinner(`${currentAgency}-scan-new-clips-btn`, true);
+            const scanResultsOutput = document.getElementById(`${currentAgency}-scan-results-output`);
+            scanResultsOutput.innerHTML = '';
+            scanResultsOutput.classList.add('hidden');
+            let allDuplicates = [];
+
+            try {
+                if (clipLibrary.length === 0) {
+                    scanResultsOutput.innerHTML = `<h4 class="text-lg font-semibold text-slate-700 mb-2">Duplicate Scan Results:</h4><p class="text-green-700 bg-green-50 p-3 rounded-lg">✅ The library is empty, so no duplicates were found.</p>`;
+                    scanResultsOutput.classList.remove('hidden');
+                    return;
+                }
+                
+                const newClipsJSON = JSON.stringify(temporaryClips.map(c => ({ tempId: c.tempId, headline: c.headline, body: c.body.replace(/<[^>]*>?/gm, '') })), null, 2);
+                const historicalClipsJSON = JSON.stringify(clipLibrary.map(c => ({ libId: c.id, headline: c.headline, body: c.body.replace(/<[^>]*>?/gm, '') })), null, 2);
+
+                const prompt = `
+                    You are a highly accurate and efficient duplicate detection system. Your task is to compare a set of "NEW CLIPS" against a "HISTORICAL LIBRARY" and identify any pairs that report on the exact same core story, event, or announcement.
+
+                    **CRITICAL RULES FOR DUPLICATE IDENTIFICATION:**
+                    1.  **Core Event Match (Primary Rule):** A "duplicate" means both the new clip and a historical clip are reporting on the **exact same factual event**.
+                        * **Example of a DUPLICATE:** A new clip about "HHS announcing a $5M grant for rural clinics on Tuesday" IS a duplicate of a historical clip about "HHS giving $5M to rural health centers on Monday". The core event is the same.
+                        * **Example of NOT a DUPLICATE:** A new clip about "a physician shortage in California" is NOT a duplicate of a historical clip about "a nursing shortage in Texas". They are on the same general topic but are different events.
+                    2.  **Headline & Content Similarity:** Use headline and body content as strong indicators. If headlines are nearly identical and the body text describes the same key actors, figures, and outcomes, they are likely duplicates.
+                    3.  **Ignore Minor Wording Differences:** The same story might be written differently by two news outlets. Focus on the underlying facts.
+
+                    **YOUR TASK:**
+                    1.  Analyze the provided JSON data for "NEW CLIPS" and "HISTORICAL LIBRARY".
+                    2.  For each new clip, find if it has a duplicate in the historical library based on the rules above.
+                    3.  Return a single, valid JSON array that identifies all true duplicate pairs.
+
+                    **OUTPUT FORMAT (MANDATORY):**
+                    - Your output MUST be a single, valid JSON array.
+                    - Each object in the array represents one detected duplicate pair and MUST have these keys:
+                      {
+                        "new_clip_tempId": "The tempId of the new clip that is a duplicate",
+                        "matched_clip_libId": "The libId of the historical clip it matches"
+                      }
+                    - If you find no duplicates, you MUST return an empty array: [].
+                    - Do not include any other text, comments, or markdown formatting in your response. Just the raw JSON array.
+
+                    ---
+                    **NEW CLIPS JSON:**
+                    ${newClipsJSON}
+                    ---
+                    **HISTORICAL LIBRARY JSON:**
+                    ${historicalClipsJSON}
+                    ---
+                `;
+                
+                const responseText = await callGemini(prompt, true);
+                const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const foundPairs = JSON.parse(cleanedResponse);
+
+                if (Array.isArray(foundPairs) && foundPairs.length > 0) {
+                    allDuplicates = foundPairs.map(dup => {
+                        const newClip = temporaryClips.find(c => c.tempId === dup.new_clip_tempId);
+                        const oldClip = clipLibrary.find(c => c.id === dup.matched_clip_libId);
+                        if (newClip && oldClip) {
+                            return {
+                                new_clip_headline: newClip.headline,
+                                matched_clip_headline: oldClip.headline,
+                                matched_clip_body: oldClip.body
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                }
+
+                let outputHtml = '';
+                if (allDuplicates.length > 0) {
+                    outputHtml = 'The following new clips may be duplicates of articles already in your library:';
+                    outputHtml += allDuplicates.map(dup => `
+                        <div class="mt-4 p-3 border border-amber-300 bg-amber-50 rounded-lg">
+                            <p class="font-bold text-slate-800">New Clip: <em class="font-semibold">${dup.new_clip_headline}</em></p>
+                            <p class="mt-2 text-sm text-slate-600">This may be a duplicate of:</p>
+                            <div class="mt-1 p-2 border-l-4 border-slate-300 bg-slate-100 text-xs text-slate-500">
+                                <p class="font-semibold">${dup.matched_clip_headline}</p>
+                                <p>${dup.matched_clip_body}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    outputHtml = '<p class="text-green-700 bg-green-50 p-3 rounded-lg">✅ No duplicates found in the historical library.</p>';
+                }
+                
+                scanResultsOutput.innerHTML = `<h4 class="text-lg font-semibold text-slate-700 mb-2">Duplicate Scan Results:</h4>${outputHtml}`;
+                scanResultsOutput.classList.remove('hidden');
+
+            } catch(err) {
+                console.error("Error scanning for duplicates:", err);
+                scanResultsOutput.innerHTML = `<h4 class="text-lg font-semibold text-slate-700 mb-2">Duplicate Scan Results:</h4><p class="text-red-700 bg-red-50 p-3 rounded-lg">An error occurred while scanning for duplicates: ${err.message}</p>`;
+                scanResultsOutput.classList.remove('hidden');
+            } finally {
+                toggleSpinner(`${currentAgency}-scan-new-clips-btn`, false);
+            }
+        }
+
+        const helpContent = {
+            sourcing: `
+                <h4>Step 1: Find Relevant News Articles</h4>
+                <p>Your goal is to find news articles relevant to the selected agency (HRSA or NIA).</p>
+                <ol>
+                    <li>Review the <strong>Overall Daily Clips Guidance</strong> to understand what makes a good article.</li>
+                    <li>Use <strong>Method 1 (Brandwatch)</strong> first. It's pre-configured to find targeted articles. Make sure to set the date range correctly.</li>
+                    <li>If Brandwatch doesn't provide enough articles, use <strong>Method 2 (Google News)</strong>. Copy the provided search queries for each topic.</li>
+                    <li>Once you find a good article, copy its entire text content. You'll need this for the next step.</li>
+                </ol>
+                <p><strong>Goal:</strong> Collect the text of relevant news articles.</p>
+            `,
+            generation: `
+                <h4>Step 2: Generate Clips from Articles</h4>
+                <p>This tab turns the raw article text you collected into formatted news clips.</p>
+                <ol>
+                    <li>Paste the full text of one or more articles into the text box.</li>
+                    <li>Click the <strong>✨ Generate Clips</strong> button. The AI will read the text and create a summarized clip for each article according to the selected agency's format.</li>
+                    <li>The generated clips will appear in a preview section below. Review each one for accuracy.</li>
+                    <li>For NIA clips, you can paste a URL into the "Study Link" box to automatically hyperlink the journal name in the summary.</li>
+                    <li>Once you are happy with the new clips, click <strong>Save Generated Clips to Library</strong>. This adds them to your collection for today's report.</li>
+                </ol>
+                <p><strong>Goal:</strong> Create and save a set of accurate, well-formatted clips for today's date.</p>
+            `,
+            archive: `
+                <h4>Reference: The Clip Archive</h4>
+                <p>This tab provides a searchable view of every clip you have ever saved to the library for the selected agency.</p>
+                <ol>
+                    <li>Use the search bar to find past clips by keyword.</li>
+                    <li>You can also perform minor edits on archived clips by clicking the blue pencil icon.</li>
+                </ol>
+                <p><strong>Goal:</strong> Use this tab as a reference tool.</p>
+            `,
+            library: `
+                <h4>Reference & Admin: Library Management</h4>
+                <p>This tab is for advanced management of your clip library. You can import old reports or delete clips in bulk.</p>
+                <ol>
+                    <li><strong>Importing:</strong> If you have old reports as <code>.docx</code> files or in plain text, you can use the import tools.</li>
+                    <li><strong>Managing:</strong> You can select a specific date from the dropdown to see all clips saved on that day and remove any you don't need.</li>
+                    <li><strong>Clearing:</strong> The <code>Clear Entire Library</code> button is a powerful tool to start fresh. Use with caution!</li>
+                </ol>
+                <p><strong>Goal:</strong> Use this tab for administrative tasks.</p>
+            `,
+            export: `
+                <h4>Step 3: Build and Export the Final Report</h4>
+                <p>This is the final step. Here, you will assemble the clips you generated today into a polished report.</p>
+                <ol>
+                    <li>First, ensure the <strong>Date for Today's Report</strong> and <strong>Time for Report</strong> are set correctly.</li>
+                    <li>In the <strong>Select Date to View Clips</strong> dropdown, choose today's date. This will load all the clips you saved in Step 2.</li>
+                    <li>Check the box next to each clip you want to include in the final report. You can use the "select all" checkbox at the top.</li>
+                    <li>For each selected clip, you can add a direct URL to the original article in the <strong>Source Link</strong> column.</li>
+                    <li>Verify the <strong>Category</strong> for each clip is correct.</li>
+                    <li>Once ready, click <strong>Create & Copy HTML</strong>. This generates the report in a viewer at the bottom of the screen and automatically copies the content.</li>
+                    <li>Open a blank Word template and paste the copied content.</li>
+                    <li>Alternatively, click <strong>Export to PDF</strong> to download a PDF version directly.</li>
+                </ol>
+                <p><strong>Goal:</strong> Produce the final, formatted Daily Clips report.</p>
+            `
+        };
+
+        window.showHelpModal = function(topic) {
+            const modal = document.getElementById('helpModal');
+            const contentDiv = document.getElementById('helpModalContent');
+            contentDiv.innerHTML = helpContent[topic] || '<p>Help content not found.</p>';
+            modal.classList.remove('hidden');
+        }
+
+        window.closeHelpModal = function() {
+            document.getElementById('helpModal').classList.add('hidden');
+        }
+
+        function makeDraggable(element, handle) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            handle.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                element.style.top = (element.offsetTop - pos2) + "px";
+                element.style.left = (element.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        function renderToolUI(agency) {
+            const appContainer = document.getElementById('app-container');
+            const isHrsa = agency === 'HRSA';
+            const agencyTitle = isHrsa ? 'HRSA Daily Clips Assistant' : 'NIA Daily Clips Assistant';
+            const brandwatchUrl = isHrsa ? '[https://app.brandwatch.com/project/1998340970/dashboards/1755300](https://app.brandwatch.com/project/1998340970/dashboards/1755300)' : '[https://app.brandwatch.com/project/1998314360/dashboards/1857473](https://app.brandwatch.com/project/1998314360/dashboards/1857473)';
+            const logoSvg = isHrsa ? 
+                `<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 16.382V5.618a1 1 0 00-1.447-.894L15 7m-6 3l6-3"/></svg>` :
+                `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>`;
+            
+            const sourcingGuideHtml = isHrsa ? getHrsaSourcingGuideHtml(brandwatchUrl) : getNiaSourcingGuideHtml(brandwatchUrl);
+            
+            const exportTableHeaders = `
+                <th scope="col" class="p-4"><input type="checkbox" id="${agency}-select-all-clips" onchange="toggleAllClips(this.checked)"></th>
+                <th scope="col" class="px-6 py-3">Article Headline</th>
+                <th scope="col" class="px-6 py-3">Source Link</th>
+                ${!isHrsa ? '<th scope="col" class="px-6 py-3">Study Link</th>' : ''}
+                <th scope="col" class="px-6 py-3">Category</th>
+            `;
+
+            const toolHtml = `
+                <div id="${agency}-tool-container" class="tool-container active">
+                    <header class="bg-white sticky top-0 z-50 shadow-md">
+                        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                            <div class="flex items-center justify-between h-20">
+                                <div class="flex items-center">
+                                    <div class="bg-sky-600 p-2 rounded-lg">${logoSvg}</div>
+                                    <h1 class="text-2xl font-bold text-slate-800 ml-4">${agencyTitle}</h1>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <button onclick="goBackToDashboard()" class="text-sm font-medium text-slate-500 hover:text-sky-600 underline">Back to Dashboard</button>
+                                    <div id="user-info" class="text-sm text-slate-500 text-right"></div>
+                                    <div id="connection-status" class="text-sm font-medium text-slate-500">Connecting...</div>
+                                    <button id="signout-btn" class="text-sm font-medium text-slate-500 hover:text-sky-600 underline">Sign Out</button>
+                                </div>
+                            </div>
+                            <nav id="main-nav" class="flex items-center justify-center space-x-8 pb-2">
+                                <div class="nav-link-group">
+                                    <a href="#${agency}-sourcing" class="nav-link text-slate-600 font-medium pb-2 active" onclick="showSection('${agency}-sourcing', this)">Sourcing Guide</a>
+                                    <div class="info-icon" onclick="showHelpModal('sourcing')" title="Help for Sourcing Guide"><svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg></div>
+                                </div>
+                                <div class="nav-link-group">
+                                    <a href="#${agency}-generation" class="nav-link text-slate-600 font-medium pb-2" onclick="showSection('${agency}-generation', this)">Clip Generation</a>
+                                    <div class="info-icon" onclick="showHelpModal('generation')" title="Help for Clip Generation"><svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg></div>
+                                </div>
+                                <div class="nav-link-group">
+                                    <a href="#${agency}-archive" class="nav-link text-slate-600 font-medium pb-2" onclick="showSection('${agency}-archive', this)">Clip Archive</a>
+                                    <div class="info-icon" onclick="showHelpModal('archive')" title="Help for Clip Archive"><svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg></div>
+                                </div>
+                                <div id="${agency}-library-nav-link-group" class="nav-link-group">
+                                    <a href="#${agency}-library" class="nav-link text-slate-600 font-medium pb-2" onclick="showSection('${agency}-library', this)">Library Management</a>
+                                    <div class="info-icon" onclick="showHelpModal('library')" title="Help for Library Management"><svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg></div>
+                                </div>
+                                <div class="nav-link-group">
+                                    <a href="#${agency}-export" class="nav-link text-slate-600 font-medium pb-2" onclick="showSection('${agency}-export', this)">Export & Sharing</a>
+                                    <div class="info-icon" onclick="showHelpModal('export')" title="Help for Export & Sharing"><svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg></div>
+                                </div>
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main class="container mx-auto p-4 sm:px-6 lg:px-8">
+                        <section id="${agency}-sourcing" class="content-section active">
+                            ${sourcingGuideHtml}
+                        </section>
+
+                        <section id="${agency}-generation" class="content-section">
+                            <div class="text-center mb-12">
+                                <h2 class="text-4xl font-extrabold text-slate-900 mb-2">Daily Clip Generator</h2>
+                                <p class="text-lg text-slate-600 max-w-3xl mx-auto">Paste article text below. The AI will summarize and categorize each article into individual clips for ${agency}.</p>
+                            </div>
+                            <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
+                                <h3 class="text-2xl font-bold text-slate-800 mb-2">Paste Article Text Here</h3>
+                                <textarea id="${agency}-article-input" class="w-full h-64 p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition" placeholder="Paste one or more full news articles here..."></textarea>
+                                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button id="${agency}-generate-clips-btn" onclick="generateClips()" class="w-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold py-3 px-4 rounded-lg hover:from-sky-600 hover:to-cyan-600 transition shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span class="flex items-center">✨ Generate Clips</span>
+                                        <div class="spinner ml-3 hidden"></div>
+                                    </button>
+                                     <button id="${agency}-override-generate-btn" onclick="overrideGenerateClips()" class="hidden w-full bg-amber-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-amber-600 transition shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span class="flex items-center">Override & Generate Anyways</span>
+                                        <div class="spinner ml-3 hidden"></div>
+                                    </button>
+                                </div>
+                                <div id="${agency}-post-generation-buttons" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
+                                     <button id="${agency}-scan-new-clips-btn" onclick="scanNewClipsForDuplicates()" class="w-full bg-amber-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-amber-600 transition shadow-md flex items-center justify-center">
+                                         <span class="flex items-center">Scan New Clips for Duplicates</span>
+                                         <div class="spinner ml-3 hidden"></div>
+                                     </button>
+                                     <button id="${agency}-save-clips-btn" onclick="saveClipsToLibrary()" class="w-full bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-emerald-600 transition shadow-md flex items-center justify-center">
+                                        Save Generated Clips to Library
+                                     </button>
+                                     <button id="${agency}-clear-new-clips-btn" onclick="clearTemporaryClips()" class="w-full bg-slate-200 text-slate-800 font-bold py-3 px-4 rounded-lg hover:bg-slate-300 transition flex items-center justify-center">
+                                        Clear New Clips
+                                      </button>
+                                </div>
+                                <div id="${agency}-clips-error" class="text-red-600 text-sm mt-2 hidden"></div>
+                                <div id="${agency}-scan-results-output" class="mt-6 hidden"></div>
+                                <div id="${agency}-clips-output-container" class="mt-8 hidden">
+                                    <h3 class="text-2xl font-bold text-slate-800 mb-4">Generated Clips Preview</h3>
+                                    <div id="${agency}-clips-output" class="space-y-4"></div>
+                                </div>
+                            </div>
+                        </section>
+                        
+                        <section id="${agency}-archive" class="content-section">
+                            <div class="text-center mb-12">
+                                <h2 class="text-4xl font-extrabold text-slate-900 mb-2">Clip Archive</h2>
+                                <p class="text-lg text-slate-600 max-w-3xl mx-auto">Search and browse all saved ${agency} clips.</p>
+                            </div>
+                            <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    <div>
+                                        <label for="${agency}-archive-date-filter" class="block text-sm font-medium text-slate-700 mb-1">Filter by Date</label>
+                                        <select id="${agency}-archive-date-filter" class="w-full p-3 border border-slate-300 rounded-md" onchange="renderClipArchive()"></select>
+                                    </div>
+                                    <div>
+                                        <label for="${agency}-archive-search-input" class="block text-sm font-medium text-slate-700 mb-1">Search by Keyword</label>
+                                        <input type="search" id="${agency}-archive-search-input" onkeyup="renderClipArchive()" class="w-full p-3 border border-slate-300 rounded-md" placeholder="Search in headline or summary...">
+                                    </div>
+                                </div>
+                                <div id="${agency}-archive-output" class="space-y-4"></div>
+                            </div>
+                        </section>
+
+                        <section id="${agency}-library" class="content-section">
+                            <div id="${agency}-library-admin-view" class="hidden">
+                                <div class="text-center mb-12">
+                                    <h2 class="text-4xl font-extrabold text-slate-900 mb-2">Library Management</h2>
+                                    <p class="text-lg text-slate-600 max-w-3xl mx-auto">Import past clips or manage your existing ${agency} library below.</p>
+                                </div>
+                                <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200 max-w-4xl mx-auto mb-8">
+                                    <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Import & Clear Tools</h3>
+                                    <div class="md:grid md:grid-cols-2 gap-8 items-start">
+                                        <div>
+                                            <h4 class="text-lg font-semibold text-slate-700 mb-2">Import from .DOCX Files</h4>
+                                            <p class="text-slate-600 mb-3 text-sm">Select multiple Word documents to automatically extract and import clips. The date will be detected from filenames like \`...6_23_2025.docx\`</p>
+                                            <div class="mb-3">
+                                                <label for="${agency}-docx-input" class="block text-sm font-medium text-slate-700 mb-1">Attach .docx Files</label>
+                                                <input type="file" id="${agency}-docx-input" multiple accept=".docx" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"/>
+                                            </div>
+                                            <button id="${agency}-import-docx-btn" onclick="importFromDocxFiles()" class="w-full bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700 transition shadow-sm flex items-center justify-center">
+                                                <span class="flex items-center">Import from DOCX</span>
+                                                <div class="spinner ml-3 hidden"></div>
+                                            </button>
+                                        </div>
+                                        <div>
+                                             <h4 class="text-lg font-semibold text-slate-700 mb-2">Import from Text</h4>
+                                             <p class="text-slate-600 mb-3 text-sm">Paste text from old reports as an alternative to file import. These will be marked as "Imported Historical".</p>
+                                            <textarea id="${agency}-historical-input" class="w-full h-24 p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition" placeholder="Paste text here..."></textarea>
+                                            <button id="${agency}-import-text-btn" onclick="importFromText()" class="w-full mt-2 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700 transition shadow-sm flex items-center justify-center">
+                                                <span class="flex items-center">Import from Text</span>
+                                                <div class="spinner ml-3 hidden"></div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6 border-t pt-6">
+                                        <button onclick="clearLibrary()" class="w-full max-w-xs mx-auto bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition shadow-md flex items-center justify-center">
+                                            Clear Entire ${agency} Library
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200 max-w-4xl mx-auto mt-8">
+                                    <h3 class="text-2xl font-bold text-slate-800 mb-2 text-center">Manage Library Clips</h3>
+                                    <p class="text-center text-slate-600 mb-4">Use the dropdown to filter and manage your saved clips.</p>
+                                    <div class="mb-4">
+                                        <label for="${agency}-library-date-selector" class="block text-sm font-medium text-slate-700 mb-1">Filter by Date</label>
+                                        <select id="${agency}-library-date-selector" class="w-full p-2 border border-slate-300 rounded-md" onchange="renderLibraryClipsForRemoval(this.value)"></select>
+                                    </div>
+                                    <div id="${agency}-library-clips-display" class="space-y-4"></div>
+                                </div>
+                            </div>
+                            <div id="${agency}-library-guest-view" class="hidden text-center p-8 bg-white rounded-lg shadow-lg">
+                                <h3 class="text-2xl font-bold text-slate-800">Admin Controls</h3>
+                                <p class="mt-4 text-slate-600">This section is for managing the entire clip library and requires administrator privileges.</p>
+                            </div>
+                        </section>
+                        
+                        <section id="${agency}-export" class="content-section">
+                             <div class="text-center mb-12">
+                                     <h2 class="text-4xl font-extrabold text-slate-900 mb-2">Export & Sharing</h2>
+                                     <p class="text-lg text-slate-600 max-w-3xl mx-auto">Assemble your final report from your library of generated and imported clips. Total clips in ${agency} library: <strong id="${agency}-library-count">0</strong></p>
+                                 </div>
+                             <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200 max-w-5xl mx-auto mb-8">
+                                     <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Build Your Daily Report</h3>
+                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 pb-6 border-b">
+                                         <div>
+                                             <label for="${agency}-historical-date-selector" class="block text-sm font-medium text-slate-700 mb-1">Select Date to View Clips</label>
+                                             <select id="${agency}-historical-date-selector" class="w-full p-2 border border-slate-300 rounded-md" onchange="populateClipTable(this.value)"></select>
+                                         </div>
+                                         <div>
+                                              <label for="${agency}-report-date-selector" class="block text-sm font-medium text-slate-700 mb-1">Select Date for Today's Report</label>
+                                              <input type="date" id="${agency}-report-date-selector" class="w-full p-2 border border-slate-300 rounded-md">
+                                         </div>
+                                         <div>
+                                              <label for="${agency}-report-time-selector" class="block text-sm font-medium text-slate-700 mb-1">Select Time for Report</label>
+                                              <input type="time" id="${agency}-report-time-selector" class="w-full p-2 border border-slate-300 rounded-md">
+                                         </div>
+                                     </div>
+                                     <div id="${agency}-clip-selection-table" class="mb-6 hidden">
+                                         <h4 class="text-lg font-semibold text-slate-700 mb-2">Select Clips to Include:</h4>
+                                         <div class="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
+                                             <table class="w-full text-sm text-left text-slate-500">
+                                                 <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
+                                                     <tr>${exportTableHeaders}</tr>
+                                                 </thead>
+                                                 <tbody id="${agency}-clips-table-body"></tbody>
+                                             </table>
+                                         </div>
+                                     </div>
+                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                          <button onclick="exportToPDF()" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition shadow-md flex items-center justify-center">Export to PDF</button>
+                                          <button onclick="createDocumentWithClips()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md flex items-center justify-center">Create & Copy HTML</button>
+                                     </div>
+                                      <div class="mt-4 text-center">
+                                          <a href="HRSA Daily Clips Template.docx" download="HRSA Daily Clips Template.docx" class="text-slate-600 hover:text-blue-600 underline">Download Blank Template</a>
+                                      </div>
+                                 </div>
+                        </section>
+                    </main>
+                </div>
+            `;
+            appContainer.innerHTML = toolHtml;
+        }
+
+        function getHrsaSourcingGuideHtml(brandwatchUrl) {
+            return `
+                <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
+                    <h2 class="text-4xl font-extrabold text-slate-900 mb-6 text-center">Guide to Sourcing Articles for HRSA Daily Clips</h2>
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-md mb-8">
+                        <h4 class="font-bold text-red-800">Overall Daily Clips Guidance (HRSA Feedback)</h4>
+                        <p class="text-red-700 mt-1">Selections MUST meet these criteria:</p>
+                        <ul class="list-disc list-inside mt-2 text-red-700 space-y-1">
+                            <li><strong>Direct HHS/HRSA Relevance:</strong> Article content is clearly and directly related to HHS or HRSA.</li>
+                            <li><strong>Key Mentions:</strong> Includes mentions of Secretary Kennedy or Administrator Thomas Engels.</li>
+                            <li><strong>HRSA Focus:</strong> References HRSA programs, initiatives, or funding.</li>
+                            <li><strong>National Significance:</strong> Pertains to legislation, policy developments, or events of national importance.</li>
+                            <li><strong>Local News Limitation:</strong> Avoid local news unless it has a direct, explicit tie to HHS or HRSA activities, funding, or personnel.</li>
+                        </ul>
+                    </div>
+                    <h3 class="text-2xl font-bold text-slate-800 border-b pb-2 mb-4">Sourcing Methods</h3>
+                    <h4 class="text-lg font-semibold text-slate-700 mt-4">Method 1: Using Brandwatch (Preferred)</h4>
+                    <p class="text-slate-600 mt-2">Access the pre-configured Brandwatch dashboard to find articles related to specific topics.</p>
+                    <ol class="list-decimal list-inside space-y-2 mt-2 text-slate-600">
+                        <li><strong>Access Brandwatch Dashboard:</strong> Navigate to <a href="${brandwatchUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">this URL</a>.</li>
+                        <li><strong>Set the Date and Time Range:</strong> From 11:00 AM yesterday to 8:00 PM today.</li>
+                        <li><strong>Review Articles:</strong> Examine the articles listed within the various topic tables on the dashboard.</li>
+                    </ol>
+                    <h4 class="text-lg font-semibold text-slate-700 mt-6">Method 2: Using Google News</h4>
+                    <p class="text-slate-600 mt-2">Use these queries in Google News for broader searches.</p>
+                    <div class="mt-4 space-y-2">
+                        <p><strong>HRSA News/AHA News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("HRSA" OR "Health Resources and Services Administration" OR "340B Program" OR "Administrator Thomas Engels") when:1d</code></p>
+                        <p><strong>Vaccine Injury News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("vaccine injury" OR "vaccine adverse event" OR "National Vaccine Injury Compensation Program" OR "VICP" OR "Countermeasures Injury Compensation Program" OR "CICP") AND ("HRSA" OR "HHS") when:1d</code></p>
+                        <p><strong>HHS Restructuring News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("HHS restructuring" OR "HHS budget" OR "Health and Human Services reform" OR "HHS reorganization" OR "HHS policy change" OR "HRSA restructuring" OR "AHA creation") when:1d</code></p>
+                        <p><strong>Health Workforce:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("health workforce" OR "healthcare workforce" OR "health professional shortage" OR "physician shortage" OR "nurse shortage" OR "National Health Service Corps" OR "HRSA workforce") when:1d</code></p>
+                        <p><strong>Rural Health News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("Rural Health" OR "rural healthcare" OR "rural hospital funding" OR "telehealth rural" OR "rural health disparities" OR “rural organ donation" OR “rural organ transplants") when:1d</code></p>
+                        <p><strong>Maternal and Child Health News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("Child Health" OR "youth mental health" OR "maternal health" OR "child health programs" OR "maternal mortality reduction" OR "women’s health services" OR "HRSA maternal") when:1d</code></p>
+                        <p><strong>Organ News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("organ donation" OR "organ transport*" OR "Organ Procurement and Transplantation Network" OR "OPTN" OR "HRSA UNOS" OR "organ donation policy" OR "organ transplant funding") when:1d</code></p>
+                        <p><strong>HIV/AIDS News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("Ryan White" OR "HIV care" OR "HIV prevention" OR "HIV/AIDS news" OR "HIV funding cuts" OR "HIV treatment advancements" OR "AIDS prevention programs" OR "HIV public health") when:1d</code></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getNiaSourcingGuideHtml(brandwatchUrl) {
+            return `
+                <div class="bg-white p-8 rounded-lg shadow-lg border border-slate-200">
+                    <h2 class="text-4xl font-extrabold text-slate-900 mb-6 text-center">Guide to Sourcing Articles for NIA Daily Clips</h2>
+                    <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-md mb-8">
+                        <h4 class="font-bold text-indigo-800">Overall Daily Clips Guidance (NIA SOP)</h4>
+                        <p class="text-indigo-700 mt-1">Selections MUST meet these criteria:</p>
+                        <ul class="list-disc list-inside mt-2 text-indigo-700 space-y-1">
+                            <li><strong>Primary Focus:</strong> Article content is clearly related to Alzheimer’s disease, dementia, or related aging topics.</li>
+                            <li><strong>NIA/NIH Relevance:</strong> Article mentions or is funded by the National Institute on Aging (NIA) or National Institutes of Health (NIH).</li>
+                            <li><strong>Source Type:</strong> Prioritize secondary news outlets (e.g., The Hill, Medical Xpress, Lane Report).</li>
+                        </ul>
+                    </div>
+                    <h3 class="text-2xl font-bold text-slate-800 border-b pb-2 mb-4">Sourcing Methods</h3>
+                    <h4 class="text-lg font-semibold text-slate-700 mt-4">Method 1: Using Brandwatch (Preferred)</h4>
+                    <p class="text-slate-600 mt-2">Access the pre-configured Brandwatch dashboard to find articles related to NIA topics.</p>
+                    <ol class="list-decimal list-inside space-y-2 mt-2 text-slate-600">
+                        <li><strong>Access Brandwatch Dashboard:</strong> Navigate to <a href="${brandwatchUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">this URL</a>.</li>
+                        <li><strong>Set the Date Range:</strong> Set the date filter to the last 24 hours.</li>
+                        <li><strong>Review Articles:</strong> Examine the articles listed within the dashboard.</li>
+                    </ol>
+                    <h4 class="text-lg font-semibold text-slate-700 mt-6">Method 2: Using Google News</h4>
+                    <p class="text-slate-600 mt-2">Use these queries in Google News for broader searches.</p>
+                    <div class="mt-4 space-y-2">
+                        <p><strong>Alzheimer's & Dementia News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("Alzheimer's disease" OR "dementia" OR "cognitive decline") when:1d</code></p>
+                        <p><strong>NIA/NIH Mention News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("National Institute on Aging" OR "NIA" OR "NIH") when:1d</code></p>
+                        <p><strong>Aging Research News:</strong> <code class="text-sm bg-slate-100 p-1 rounded-md text-slate-800 block">("aging research" OR "healthy aging" OR "geroscience") when:1d</code></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeTool(agency) {
+            const today = new Date().toISOString().slice(0, 10);
+            const dateSelector = document.getElementById(`${agency}-report-date-selector`);
+            const timeSelector = document.getElementById(`${agency}-report-time-selector`);
+            if (dateSelector) dateSelector.value = today;
+            if (timeSelector) timeSelector.value = '10:00';
+            
+            temporaryClips = [];
+            clipLibrary = [];
+
+            const collectionName = agency === 'HRSA' ? 'clips' : 'NIAclips';
+            clipsCollectionPath = `/artifacts/1:387685796482:web:3240e6133b57f6ff90829b/public/data/${collectionName}`;
+
+            updateAllLibraryDependentUI();
+
+            const user = auth.currentUser;
+            if (user) {
+                updateAuthUI(user);
+            }
+
+            listenForLibraryChanges();
+        }
+
+        function updateAuthUI(user) {
+            const userInfoEl = document.getElementById('user-info');
+            if (!userInfoEl || !currentAgency) return;
+
+            isAdmin = user && !user.isAnonymous;
+            const agencyPrefix = currentAgency;
+
+            const libraryNavLink = document.getElementById(`${agencyPrefix}-library-nav-link-group`);
+            const libraryAdminView = document.getElementById(`${agencyPrefix}-library-admin-view`);
+            const libraryGuestView = document.getElementById(`${agencyPrefix}-library-guest-view`);
+
+            if (isAdmin) {
+                userInfoEl.textContent = `Admin: ${user.email}`;
+                if (libraryNavLink) libraryNavLink.style.display = 'flex';
+                if (libraryAdminView) libraryAdminView.style.display = 'block';
+                if (libraryGuestView) libraryGuestView.style.display = 'none';
+            } else {
+                userInfoEl.textContent = `Guest Mode`;
+                if (libraryNavLink) libraryNavLink.style.display = 'none';
+                if (libraryAdminView) libraryAdminView.style.display = 'none';
+                if (libraryGuestView) libraryGuestView.style.display = 'block';
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            makeDraggable(document.getElementById('helpModal'), document.getElementById('helpModalHeader'));
+
+            const firebaseConfig = {
+              apiKey: "",
+              authDomain: "iqdailyclips.firebaseapp.com",
+              projectId: "iqdailyclips",
+              storageBucket: "iqdailyclips.appspot.com",
+              messagingSenderId: "877926181386",
+              appId: "1:877926181386:web:bdda812fa72dbe4a510df3"
+            };
+            appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
+            
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('debug');
+
+            const authContainer = document.getElementById('auth-container');
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const signinBtn = document.getElementById('signin-btn');
+            const guestSigninBtn = document.getElementById('guest-signin-btn');
+            const authError = document.getElementById('auth-error');
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    authContainer.classList.add('hidden');
+                    dashboardContainer.classList.remove('hidden');
+                    
+                    document.getElementById('dashboard-signout-btn').addEventListener('click', async () => {
+                        try { await signOut(auth); } catch (e) { console.error(e); }
+                    });
+
+                } else {
+                    authContainer.classList.remove('hidden');
+                    dashboardContainer.classList.add('hidden');
+                    document.getElementById('app-container').classList.add('hidden');
+                    isAdmin = false;
+                    if (unsubscribeFromLibrary) {
+                        unsubscribeFromLibrary();
+                    }
+                }
+            });
+
+            signinBtn.addEventListener('click', async () => {
+                const email = document.getElementById('email-input').value;
+                const password = document.getElementById('password-input').value;
+                authError.classList.add('hidden');
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (error) {
+                    console.error("Admin sign-in error:", error);
+                    authError.textContent = error.message;
+                    authError.classList.remove('hidden');
+                }
+            });
+
+            guestSigninBtn.addEventListener('click', async () => {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Guest sign-in error:", error);
+                    authError.textContent = "Could not sign in as guest. " + error.message;
+                    authError.classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('app-container').addEventListener('click', async (e) => {
+                if (e.target && e.target.id === 'signout-btn') {
+                    try {
+                        await signOut(auth);
+                    } catch (error) {
+                        console.error("Sign out error:", error);
+                        showAlert("Error signing out.");
+                    }
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
+
